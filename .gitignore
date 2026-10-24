@@ -1,0 +1,60 @@
+# Credenciales y secretos
+*contrasena*
+*contrase?a*
+*password*
+*credential*
+*secret*
+*.pem
+*.key
+.env
+.env.*
+
+# Mundos, backups y datos de servidor
+world/
+world_nether/
+world_the_end/
+**/region/
+**/*.mca
+**/*.schem
+**/*.litematic
+**/*.zip
+**/*.7z
+**/*.rar
+**/*.tar
+**/*.gz
+
+# Binarios y artefactos de compilacion
+**/*.jar
+**/*.class
+**/build/
+**/dist/
+**/target/
+**/logs/
+**/*.log
+
+# Bases de datos, caches y salidas generadas
+**/*.db
+**/*.sqlite*
+**/.cache/
+**/graphify-out/
+**/__pycache__/
+**/.gradle/
+
+# Archivos locales del sistema y editores
+.DS_Store
+Thumbs.db
+*.tmp
+*.bak*
+
+# El archivo fuente existe pero esta vacio; no aporta continuidad documental
+docs/mundo/REVISION_DOCUMENTOS_2026-10-22.md
+
+# Snapshots historicos o documentos operativos con topologia privada
+docs/INSTRUCCIONES/PENDIENTE_SINCRONIZACION_ENTREGA_2026-10-18.md
+docs/INSTRUCCIONES/REVISION_INSTRUCCIONES_2026-10-16.md
+docs/INSTRUCCIONES/REVISION_INSTRUCCIONES_2026-10-19.md
+docs/mundo/ALTERNATIVAS_PEGADO_ROXY_SOLO_ESTRUCTURAS_2026-10-21.md
+docs/mundo/BITACORA_FALLOS_PEGADO_ROXY_2026-10-21.md
+docs/mundo/COMANDOS_NATURALIZACION_RIKARISU_2026-10-22.md
+docs/mundo/COMO_SUBIR.md
+docs/mundo/COORDENADAS_PEGADO_PIEZAS_2026-10-20.md
