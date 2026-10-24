@@ -1,0 +1,53 @@
+# diseases.yml — catalogo de enfermedades. Texto del spec §13 L648-682 (verbatim) + 1 decision.
+# Fase 0 (agente F0). Reglas de uso (§13 L684-693):
+#   - amplificador 0 = nivel I
+#   - la reduccion de Orsted se aplica ANTES de la tirada (§12 L620)
+#   - sin acumulacion infinita: si ya esta activa, se ignora (o se refresca la expiracion a lo sumo) [PROPUESTA plan §4.4]
+#   - "cures: [MILK]" = la leche la cura (§13 L690); inmunidad post-cura en segundos
+#   - se persiste en la tabla diseases; ninguna tarea por jugador por tick (§13 L692)
+
+dryne:
+  display-name: "Fiebre de Dryne"
+  sources:
+    - HUSK_DAMAGE
+  base-chance-percent: 4.0
+  duration-seconds: 180
+  effects:
+    WEAKNESS: 0
+    MINING_FATIGUE: 0
+  cures:
+    - MILK
+  immunity-after-cure-seconds: 300
+
+miasma:
+  display-name: "Miasma de laberinto"
+  sources:
+    - CAVE_SPIDER_DAMAGE
+    - SILVERFISH_DAMAGE
+  base-chance-percent: 4.0
+  duration-seconds: 120
+  effects:
+    SLOWNESS: 0
+    WEAKNESS: 0
+
+laplace:
+  display-name: "Fiebre de Laplace"
+  sources:
+    - ENDERMAN_DAMAGE
+  base-chance-percent: 4.0
+  duration-seconds: 45
+  effects:
+    DARKNESS: 0
+    NAUSEA: 0
+
+# [DECISION D2 PENDIENTE] "desplazamiento" existe en el Skript actual (enfermedades.sk L17-20)
+# pero NO figura en el catalogo del spec §13. Se incluye aqui marcada para decidir:
+# A: incluirla (estado actual) / B: omitirla.
+desplazamiento:
+  display-name: "Mal de desplazamiento"
+  sources: []                  # en Skript no tiene fuente automatica (solo admin)
+  base-chance-percent: 0.0
+  duration-seconds: 30
+  effects:
+    NAUSEA: 0
+    SLOWNESS: 0

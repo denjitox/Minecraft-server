@@ -1,0 +1,76 @@
+# plugin.yml — textual del spec §6 L230-285 (Instructivo_Diseno_MushokuCore.md).
+# Fase 0 (agente F0), 2026-10-17. No editar sin actualizar el plan §4.1.
+name: MushokuCore
+version: '1.0.0'
+main: ar.com.maydana.mushokucore.MushokuCorePlugin
+api-version: '26.2'   # [A VERIFICAR - V11] valor del spec sin confirmar contra el Paper 26.2 real: primer arranque de prueba (Fase 2)
+authors: [AdministracionMushoku]
+description: Sistemas tematicos y progresion del servidor Mushoku
+
+# DECISION D16 (2026-10-18): LuckPerms pasa a softdepend. El spec §6 L238 pedia depend duro,
+# pero §2.5 (fallo seguro) y §7 L287 piden que el plugin arranque sin LP. El codigo ya lo asume:
+# LuckPermsService.disponible()==false cuando LP falta, y todos los call sites (JavaChatUi,
+# LuckPermsOutbox, DiseasesService) degradan sin crashear.
+softdepend:
+  - LuckPerms
+  - Towny
+  - floodgate
+  - PlaceholderAPI
+  - TAB
+  - DecentHolograms
+
+# Comandos del MVP + stubs: literal del spec §6 L248-264 / §17 L799-827.
+# /dimension NO se declara: §17 lo usa pero §6 no lo lista (ambiguedad V2) y es 1.3 (§3 L126-132).
+commands:
+  mushoku:
+    description: Comando principal de MushokuCore
+    usage: /mushoku ayuda
+    aliases: [mt]
+  potencias:
+    description: Muestra las Siete Potencias Mundiales
+  mtestado:
+    description: Muestra el estado tematico del jugador
+  # DECISION D3 (2026-10-18): los 3 stubs se MANTIENEN en 1.0 (responden stub.module-future);
+  # sus modulos reales llegan en 1.1 (factions) y 1.2 (relics).
+  faccion:
+    description: Gestion complementaria de facciones
+  alianza:
+    description: Consulta o solicita una alianza
+  enfermedad:
+    description: Administracion de enfermedades
+  reliquia:
+    description: Administracion de reliquias
+  # Alianza de los Apostoles (spec §21 L893). Vision nocturna 5 min, cooldown 30 min.
+  visionapostol:
+    description: Vision nocturna por 5 minutos (alianza de los Apostoles)
+    usage: /visionapostol
+    permission: mt.alianza.apostoles
+    permission-message: "&cNo tenes permiso."
+
+permissions:
+  mushoku.use:
+    default: true
+  mushoku.potencias.view:
+    default: true
+  mushoku.factions.use:
+    default: true
+  mushoku.admin:
+    default: op
+  mushoku.admin.reload:
+    default: op
+  mushoku.admin.potencias:
+    default: op
+  mushoku.admin.enfermedades:
+    default: op
+  mushoku.admin.reliquias:
+    default: op
+  mushoku.admin.dimensiones:
+    default: op
+  # DECISION D12 (2026-10-18): /mushoku import skript es invocable EN JUEGO por un jugador con
+  # este permiso (y tambien por consola). plan §5.1, fuera del spec §17.
+  mushoku.admin.import:
+    default: op
+  # Permiso de la alianza de los Apostoles; mismo nodo que usa el Skript actual (mt.alianza.*).
+  mt.alianza.apostoles:
+    description: Alianza de los Apostoles; habilita /visionapostol
+    default: false

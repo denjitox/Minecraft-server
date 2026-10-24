@@ -1,0 +1,76 @@
+# messages.yml — esqueleto [PROPUESTA] (el spec no da contenido; plan §4.3).
+# Los textos conservan los del Skript actual para no cambiar la experiencia del jugador.
+# Fase 0 (agente F0). Formato de placeholders: {clave} se reemplaza en runtime (ver config/Messages.java).
+prefix: "&8[&6MushokuCore&8]&r"
+generic:
+  no-permission: "&cNo tenés permiso."
+  player-not-found: "&cJugador no encontrado: {jugador}"
+  reload-ok: "&aRecargado messages.yml (config.yml requiere reinicio). Módulos: {modulos}."
+  db-error: "&cError de base de datos. La operación NO se aplicó. Contacta a un admin."
+potencias:
+  list-header: "&8&m-------------------------------&r\n&6&lLAS SIETE POTENCIAS MUNDIALES"
+  list-entry: "&e{puesto}. &f{titulo} &8— &7{propietario}"   # {propietario}="No conquistado" si libre
+  list-footer: "&8&m-------------------------------&r"
+  announce-new-owner: "&6[Potencias]&r &e{jugador} &7ha obtenido el puesto {puesto}: &f{titulo}&7."   # = potencias.sk L29
+  admin-assigned: "&aPuesto {puesto} asignado a {jugador}."
+  admin-freed: "&aPuesto {puesto} liberado."
+mtestado:
+  solo-jugadores: "&7/mtestado lo ejecuta un jugador."
+  header: "&8&m-------------------------------&r\n&6&lESTADO DE PERSONAJE"
+  alliance-orsted: "&7Alianza: &bOrsted Corp &8(50% menos contagio)"
+  alliance-apostles: "&7Alianza: &dApóstoles del Dios Humano &8(/visionapostol)"
+  alliance-neutral: "&7Alianza: &fNeutral"
+  disease-none: "&7Sin enfermedades."
+  disease-active: "&7Enfermedad: &f{enfermedad} &7(expira en {minutos} min)"
+  footer: "&8&m-------------------------------&r"
+enfermedad:
+  infected: "&e{display-name}&7: {efectos-texto} durante {duracion}."   # = textos de enfermedades.sk L8/12/16/20
+  cured: "&aCuraste {display-name}."
+  admin-applied: "&aEnfermedad {id} aplicada a {jugador}."
+  admin-cured: "&aEnfermedades curadas de {jugador}."
+dimensiones:
+  locked-nether: "SELLADO"    # placeholders §18; estado real llega en 1.3
+  locked-end: "SELLADO"
+stub:
+  module-future: "&cEste módulo estará disponible en una versión futura del servidor."
+factions:
+  players-only: "&cEste comando debe ejecutarlo un jugador."
+  loading: "&eEl módulo de facciones todavía está cargando su estado. Intentá de nuevo."
+  towny-unavailable: "&cTowny no está disponible. No se modificó ninguna alianza."
+  no-town: "&cTenés que pertenecer a un pueblo de Towny."
+  mayor-only: "&cSolo el alcalde puede elegir o cambiar la alianza del pueblo."
+  fixed-nation-missing: "&cLa nación fija '{nacion}' no existe en Towny. Un administrador debe crearla antes de elegir alianza."
+  state-mismatch: "&cEl estado no coincide: Towny={towny}, MushokuCore={mushoku}. Un admin debe reconciliarlo."
+  already-selected: "&eEl pueblo ya tiene ese estado de alianza."
+  locked: "&cLa alianza está bloqueada hasta {fecha}."
+  deserter: "&cEl pueblo debe permanecer neutral hasta {fecha}."
+  too-few-members: "&cEl pueblo necesita al menos {minimo} miembros para ingresar a una alianza."
+  too-many-members: "&cEl pueblo no puede superar {maximo} miembros al ingresar a una alianza."
+  change-rejected: "&cEl cambio de alianza fue rechazado."
+  choice-pending: "&ePueblo: &f{pueblo}&e. Acción: &f{accion}&e ({alianza}). Confirmá con &f/alianza confirmar&e dentro de 5 minutos."
+  no-pending: "&cNo hay una elección pendiente o ya venció. Usá /alianza elegir primero."
+  town-changed: "&cCambiaste de pueblo o ya no sos el alcalde. La elección se canceló."
+  towny-error: "&cTowny rechazó el cambio: {error}. No se guardó nada."
+  db-error: "&cSQLite rechazó el cambio. Se intentó restaurar Towny; avisá a un administrador."
+  changed: "&aEl pueblo {pueblo} quedó en {alianza}. El espejo de beneficios LuckPerms sigue pendiente."
+  info: "&6{pueblo}&7: {miembros} miembros, alianza {alianza}, claims {claims}/{limite}."
+  alliance-usage: "&eUso: /alianza info | elegir <orsted|apostoles> | confirmar"
+  admin-usage: "&eUso: /alianza admin establecer <jugador> <orsted|apostoles|neutral>"
+  invalid-alliance: "&cAlianza inválida. Usá orsted, apostoles o neutral (solo admin)."
+import:
+  dry-run-ok: "&aSimulación OK: {n} registros, 0 conflictos."
+  dry-run-conflicts: "&eSimulación con {n} conflictos. Revisá la consola."
+  real-done: "&aImportación completada: {n} registros."
+visionapostol:
+  solo-jugadores: "&7/visionapostol lo ejecuta un jugador."
+  activada: "&dVisión nocturna concedida por 5 minutos. &7(próximo uso en 30 min)"
+  en-cooldown: "&cVas a poder usar /visionapostol en &e{minutos} min &7({segundos} s)&c."
+  fallo: "&cNo se pudo aplicar la visión nocturna. Intentá de nuevo."
+regional-difficulty:
+  enabled: "&aEscalado regional de dificultad activado."
+  disabled: "&cEscalado regional de dificultad desactivado."
+  info-header: "&8&m-------------------------------&r\n&6&lESCALADO REGIONAL DE DIFICULTAD"
+  info-zone: "&e{zona}&7: radio ≤ {radio} &8| &fVida: {vida}% &8| &fDaño: {daño}%"
+  info-dimension: "&e{dimension}&7: &fVida: {vida}% &8| &fDaño: {daño}%"
+  info-footer: "&8&m-------------------------------&r"
+  trial-spawner-limit: "&7Trial Spawners limitados a {max}% de vida adicional."

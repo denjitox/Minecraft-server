@@ -1,0 +1,153 @@
+# config.yml — schema 2. Fase 0 (agente F0), base: spec §9 L391-443 + plan §4.2.
+# Los valores marcados [DECISION Dn PENDIENTE] NO estan decididos: este es el default del jar
+# (propuesta del plan §4.2) y el operador/usuario puede cambiarlo antes de produccion.
+# El archivo schema 1 existente en MT_Server_Base_26.2\plugins\MushokuCore\ NO se toca aqui:
+# lo reemplaza el operador en el paso de instalacion (spec §24 L999-1008).
+schema: 2
+enabled: true
+
+storage:
+  type: sqlite
+  file: mushoku.db
+  busy-timeout-ms: 5000
+
+modules:
+  ranks: true
+  factions: true
+  diseases: true
+  relics: false          # DECISION D4 (2026-10-18): false en MVP (1.2); el datapack sigue entregando loot (§21 L910).
+  dimensions: false      # DECISION D4 (2026-10-18): false en MVP (1.3); spec §9 L405 decia true.
+  bedrock-bridge: true
+  regional-difficulty: true
+
+world:
+  # Las 3 claves siguientes son DECISIONES DEL USUARIO (2026-10-16/17): manda el usuario.
+  name: world
+  border-diameter: 21800
+  center-x: 0
+  center-z: 0
+  min-y: -64
+  max-y: 511             # DECISION DEL USUARIO 2026-10-17 (techo y=511 verificado con datapack sonda).
+                         # spec §9 L414 dice 320 y §9 L445 advierte contra 511 -> CONFLICTO V1: manda el usuario.
+
+dimensions:
+  # Aclaracion de decision (2026-10-17): el End esta HABILITADO en bukkit.yml (settings.allow-end: true)
+  # porque no existe ningun bloque end_portal hasta que muera el jefe. Las claves de abajo son el estado
+  # del modulo dimensions (INERTE en MVP: es 1.3); el sellado real de portales lo hara ese modulo.
+  nether-locked-at-launch: true
+  end-locked-at-launch: true
+  minimum-unlock-days: 7
+  allow-admin-bypass: true
+
+factions:                # inerte en MVP (1.1); valores spec §9 L422-432, ya decididos por el usuario
+  min-members: 3
+  max-members: 8
+  claims-base: 8
+  claims-per-member: 5
+  claims-max: 48
+  allegiance-lock-days: 14
+  deserter-cooldown-days: 7
+  fixed-nations:
+    orsted: Orsted_Corp
+    apostles: Apostoles_Humanos
+
+ranks:
+  pvp-same-victim-cooldown-hours: 12    # §9 L435; = Skript actual (potencias.sk)
+  boss-contribution-expiry-minutes: 60  # §9 L436
+  minimum-contribution-percent: 1.0     # §9 L437
+  announce-global: true                 # §9 L438
+  # ---- claves nuevas del plan §4.2: sin ellas las reglas §11 L579-586 no se implementan ----
+  min-victim-online-seconds: 60         # DECISION D6 (2026-10-18): umbral "conectada demasiado poco" (§11 L585).
+  excluded-worlds: []                   # DECISION D7 (2026-10-18): sin mundos excluidos (§11 L584).
+  valid-boss-worlds: [world]            # DECISION D7 (2026-10-18): mundo(s) valido(s) para jefes (§11 L565).
+  boss-buffer-flush-seconds: 5          # [PROPUESTA plan §4.2] buffer de daño §19 L863
+  reconcile-minutes: 30                 # [PROPUESTA plan §4.2] recalculo del puesto 5 §11 L588
+
+diseases:                                # [PROPUESTA plan §4.2] §13 no trae seccion de config
+  tick-check-ticks: 100                  # §13 L693 "tarea periodica liviana"
+  orsted-chance-multiplier: 0.5          # §12 L620
+  orsted-permission: mt.alianza.orsted   # [DECISION D11 PENDIENTE] nombre actual del Skript (enfermedades.sk L26)
+
+bedrock:
+  enable-forms: false                    # forms = 1.3 (§3 L132); §9 L441 dice true -> prevalece el alcance (V10)
+  always-provide-command-fallback: true  # §9 L442
+
+# ---- regional-difficulty (escalado de vida/daño por distancia) ----
+regional-difficulty:
+  enabled: true
+  # Centro de referencia (spawn mundial)
+  center-x: 0
+  center-z: 0
+  # Zonas en el Overworld (radio en bloques desde center-x, center-z)
+  zones:
+    - name: "zona_cercana"
+      max-radius: 2000
+      health-multiplier: 1.10
+      damage-multiplier: 1.10
+    - name: "zona_media"
+      max-radius: 6000
+      health-multiplier: 1.20
+      damage-multiplier: 1.15
+    - name: "zona_lejana"
+      max-radius: 10900
+      health-multiplier: 1.35
+      damage-multiplier: 1.25
+  # Dimensiones especiales (aplican bonus fijo, ignoran radio)
+  dimensions:
+    the_nether:
+      health-multiplier: 1.40
+      damage-multiplier: 1.30
+    the_end:
+      health-multiplier: 1.50
+      damage-multiplier: 1.35
+  # Entidades excluidas del escalado (nombres de entidad vanilla en minúsculas con guion bajo)
+  excluded-entities:
+    - "warden"
+    - "ender_dragon"
+    - "villager"
+    - "wandering_trader"
+    - "cat"
+    - "parrot"
+    - "horse"
+    - "donkey"
+    - "mule"
+    - "llama"
+    - "trader_llama"
+    - "cow"
+    - "pig"
+    - "sheep"
+    - "chicken"
+    - "rabbit"
+    - "fox"
+    - "wolf"
+    - "polar_bear"
+    - "panda"
+    - "bee"
+    - "turtle"
+    - "dolphin"
+    - "cod"
+    - "salmon"
+    - "tropical_fish"
+    - "pufferfish"
+    - "squid"
+    - "glow_squid"
+    - "axolotl"
+    - "goat"
+    - "camel"
+    - "sniffer"
+    - "frog"
+    - "tadpole"
+    - "allay"
+  # Trial Spawners: límite propio de vida (no escalado completo)
+  trial-spawner-limit: true
+  trial-spawner-max-health-multiplier: 1.5
+
+audit:
+  # DECISION D17-D20 (2026-10-18): retencion de audit_log. La tarea AuditArchiveTask archiva a CSV
+  # (plugins/MushokuCore/auditoria/) las filas de audit_log con occurred_at de mas de 7 dias y las
+  # borra. 0 o negativo = poda desactivada.
+  retention-days: 7
+
+# Claves del config schema 1 viejo (essential_clickable_chat, require_offhand, require_entity_glow,
+# custom_enchantments, custom_anvil_recipes) se descartan: [DECISION D16 del plan] — son guardas que
+# §2.1 ya garantiza por diseño. ConfigService detecta schema 1/ausente y no arranca modulos de escritura.

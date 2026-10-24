@@ -1,0 +1,19 @@
+# relics.yml — catalogo de reliquias. Esqueleto INERTE para el MVP (modulo relics = false,
+# decision D4; hasta entonces el datapack mt_core sigue siendo el unico que entrega loot,
+# spec §21 L910-911 y plan §1.2). Fase 0 (agente F0); logica de entrega: 1.2 (agente I/Fase 2).
+# Claves PDC: spec §14 L700-705. Probabilidades: spec §14 L711-719 — coinciden exactamente con
+# los roll_normal/roll_ominous del datapack mt_core (verificado en el plan §0, 2026-10-17).
+schema: 1
+pdc-keys:
+  relic-id: "mushokucore:relic_id"
+  relic-uuid: "mushokucore:relic_uuid"
+  schema: "mushokucore:schema"
+schema-version: 1
+catalog:
+  anillo_supresion:  { base-item: AMETHYST_SHARD, model: "mushoku:ring",          chance-normal: 3, chance-ominous: 5 }
+  pendiente_sara:    { base-item: ECHO_SHARD,     model: "mushoku:earring",       chance-normal: 3, chance-ominous: 5 }
+  colgante_migurd:   { base-item: HEART_OF_THE_SEA, model: "mushoku:pendant",     chance-normal: 3, chance-ominous: 5 }
+  espada_paul:       { base-item: IRON_SWORD,     model: "mushoku:paul_sword",    chance-normal: 2, chance-ominous: 5 }
+  lanza_superd:      { base-item: TRIDENT,        model: "mushoku:superd_spear",  chance-normal: 1, chance-ominous: 4 }
+  aqua_heartia:      { base-item: DIAMOND_SWORD,  model: "mushoku:aqua_heartia",  chance-normal: 0, chance-ominous: 3 }
+  armadura_magica:   { base-item: NETHERITE_CHESTPLATE, model: "mushoku:magic_armor", chance-normal: 0, chance-ominous: 3 }
