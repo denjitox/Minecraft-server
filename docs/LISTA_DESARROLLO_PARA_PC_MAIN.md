@@ -43,6 +43,16 @@ Rama actual: (sin git verificado desde este entorno)
 - [ ] Correr `cd MushokuCore; .\build.ps1 -Verbose` y conservar la salida. **La compilación nunca se ejecutó desde acá**: no hay JDK ni jars en esta máquina.
 - [ ] Copiar `build\libs\MushokuCore-1.0.0.jar` a `servidor\plugins\` y reiniciar el servidor (Paper no re extrae `messages.yml` si el archivo ya existe en `plugins\MushokuCore\`).
 
+## Títulos en TAB y `/potencias` (sin compilar)
+
+Cambios del 2026-10-25, **sin compilar ni probar en runtime**:
+
+- [ ] `integration/TabListRefresher.java` (nuevo): fuerza `PlayerPlaceholder.update(TabPlayer)` sobre `%luckperms-prefix%`, `%luckperms-prefixes%`, `%luckperms-suffix%`, `%luckperms-suffixes%` y `%luckperms-weight%`. Usa reflexión porque TAB es softdepend.
+- [ ] `module/ranks/LuckPermsOutbox.java`: llama a `tablist.solicitar(...)` tras cada operación de LuckPerms exitosa.
+- [ ] `module/ranks/PotenciasService.java`: caché `nombres` poblada en el hilo principal; `nombreDe()` la lee desde async. Antes devolvía `null` en rutas async, así que `/potencias` mostraba el UUID y lo grababa en `world_powers.nombre_dueno`.
+- [ ] **Config necesaria**: TAB debe usar los placeholders de LuckPerms (o formato por grupo), y los grupos `potencia1..7` necesitan prefijo y **peso mayor que `default`** para que LuckPerms los tome como primario. Sin eso el refresco corre pero no hay nada distinto que pintar.
+- [ ] El formato por grupo (`groups.yml`) sigue atado a `permission-refresh-interval` de TAB (1000 ms); la API pública no permite adelantarlo.
+
 ## Archivos clave
 - `datapacks/mt_core/` - Todo el sistema Hitogami
 - `Skript/scripts/hitogami.sk` - Tracking daño + ítem único

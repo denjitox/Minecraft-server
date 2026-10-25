@@ -95,18 +95,18 @@ $serverRoot = Split-Path $LibRoot -Parent
 $pluginsDir = Join-Path $serverRoot 'plugins'
 
 $cpJars = @(
-    (Resolve-Dependencia (Join-Path $LibRoot 'io\papermc\paper\paper-api') 'paper-api-*.jar' 'paper-api')
-    (Resolve-Dependencia (Join-Path $LibRoot 'net\kyori\adventure-api') 'adventure-api-*.jar' 'adventure-api')
-    (Resolve-Dependencia (Join-Path $LibRoot 'net\kyori\adventure-key') 'adventure-key-*.jar' 'adventure-key')
-    (Resolve-Dependencia (Join-Path $LibRoot 'net\kyori\option') 'option-*.jar' 'adventure option')
-    (Resolve-Dependencia (Join-Path $LibRoot 'net\md-5\bungeecord-chat') 'bungeecord-chat-*.jar' 'bungeecord-chat')
-    (Resolve-Dependencia (Join-Path $LibRoot 'com\google\guava\guava') 'guava-*.jar' 'guava')
+    (Resolve-Dependencia -Directorio (Join-Path $LibRoot 'io\papermc\paper\paper-api') -Patron 'paper-api-*.jar' -Nombre 'paper-api')
+    (Resolve-Dependencia -Directorio (Join-Path $LibRoot 'net\kyori\adventure-api') -Patron 'adventure-api-*.jar' -Nombre 'adventure-api')
+    (Resolve-Dependencia -Directorio (Join-Path $LibRoot 'net\kyori\adventure-key') -Patron 'adventure-key-*.jar' -Nombre 'adventure-key')
+    (Resolve-Dependencia -Directorio (Join-Path $LibRoot 'net\kyori\option') -Patron 'option-*.jar' -Nombre 'adventure option')
+    (Resolve-Dependencia -Directorio (Join-Path $LibRoot 'net\md-5\bungeecord-chat') -Patron 'bungeecord-chat-*.jar' -Nombre 'bungeecord-chat')
+    (Resolve-Dependencia -Directorio (Join-Path $LibRoot 'com\google\guava\guava') -Patron 'guava-*.jar' -Nombre 'guava')
     # paper-api referencia @NotNull: sin esas clases javac no da un error legible,
     # crashea con CompletionFailure (exit 4). Solo existen dentro de ajLeaderboards.
-    (Resolve-Dependencia (Join-Path $pluginsDir 'ajLeaderboards\libs') 'annotations-*.jar' 'annotations de JetBrains')
+    (Resolve-Dependencia -Directorio (Join-Path $pluginsDir 'ajLeaderboards\libs') -Patron 'annotations-*.jar' -Nombre 'annotations de JetBrains')
     # PlaceholderAPI y Towny son compileOnly: en runtime los aporta plugins\.
-    (Resolve-Dependencia $pluginsDir 'PlaceholderAPI-*.jar' 'PlaceholderAPI')
-    (Resolve-Dependencia $pluginsDir 'Towny-*.jar' 'Towny')
+    (Resolve-Dependencia -Directorio $pluginsDir -Patron 'PlaceholderAPI-*.jar' -Nombre 'PlaceholderAPI')
+    (Resolve-Dependencia -Directorio $pluginsDir -Patron 'Towny-*.jar' -Nombre 'Towny')
 )
 $classpath = $cpJars -join ';'
 

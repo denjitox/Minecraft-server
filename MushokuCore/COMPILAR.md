@@ -64,8 +64,10 @@ Si el build falla, `build\` se borra para no dejar un parcial que parezca bueno.
 
 | Dato | Valor |
 |---|---|
-| Sintaxis del script | OK (parser de PowerShell, 2026-10-25) |
+| Sintaxis del script | OK (parser de PowerShell, 824 tokens, 2026-10-25) |
+| `Invoke-ScriptAnalyzer` | Sin hallazgos, todas las severidades (2026-10-25) |
 | `-WhatIf` sin escribir en disco | Verificado con árbol de librerías simulado |
 | Ambigüedad de versiones detectada | Verificado (dos `paper-api` → error con ambos nombres) |
 | Dependencia faltante nombrada | Verificado (`Towny` ausente → error explícito) |
+| Trampa de stderr en PS 5.1 | **No reproduce** con invocación directa en 5.1.19041; sí al capturar `2>&1` con `EAP=Stop`. `Invoke-Nativo` esquiva ambos casos. |
 | Compilación real | **No ejecutada**: esta notebook no tiene JDK ni `servidor\libraries` |

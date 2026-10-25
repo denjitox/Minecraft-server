@@ -10,28 +10,30 @@ import org.bukkit.plugin.java.JavaPlugin;
 /**
  * Repinta el tablist de TAB cuando cambia el grupo de LuckPerms de un jugador.
  *
- * <p>TAB arma el tablist con los placeholders de LuckPerms ({@code %luckperms-prefix%} y sus
- * variantes), que se recalculan cada 500 ms. Forzar
- * {@code PlayerPlaceholder.update(TabPlayer)} adelanta el cambio al mismo tick en que se
- * aplicó el grupo, sin esperar el refresco periódico ni un relog.</p>
+ * <p>TAB expone los placeholders {@code %luckperms-prefix%} y compañía con refresco periódico de
+ * 1000 ms. Forzar {@code PlayerPlaceholder.update(TabPlayer)} los recalcula en el mismo tick en
+ * que se escribió el grupo, sin esperar el ciclo.</p>
+ *
+ * <p>Queda afuera el formato por grupo de {@code groups.yml}: TAB lo recalcula solo cada
+ * {@code permission-refresh-interval} (1000 ms por defecto) y su API pública no permite
+ * adelantarlo.</p>
  *
  * <p>Reflexión porque TAB es softdepend y su jar no está en el classpath de {@code build.ps1}.
- * Si TAB falta o su API cambia, {@link #solicitar(UUID)} no hace nada y el tablist queda a cargo
- * del refresco periódico de TAB.</p>
+ * Sin TAB, o con una API distinta, {@link #solicitar(UUID)} no hace nada y el tablist queda a
+ * cargo del refresco periódico de TAB.</p>
  *
  * <p><b>Hilos:</b> {@link #solicitar(UUID)} acepta cualquier hilo (el outbox de LuckPerms es
  * asíncrono); la API de TAB solo se toca en el hilo principal.</p>
  */
 public final class TabListRefresher {
 
-    /** Placeholders de TAB dependientes del grupo; {@code %group%} además mueve el orden. */
+    /** Placeholders de TAB que leen el grupo de LuckPerms, incluido el peso del orden. */
     private static final String[] PLACEHOLDERS = {
             "%luckperms-prefix%",
             "%luckperms-prefixes%",
             "%luckperms-suffix%",
             "%luckperms-suffixes%",
-            "%luckperms-weight%",
-            "%group%"
+            "%luckperms-weight%"
     };
 
     private final JavaPlugin plugin;
@@ -104,19 +106,15 @@ public final class TabListRefresher {
             Class<?> clasePlayerPlaceholder =
                     Class.forName("me.neznamy.tab.api.placeholder.PlayerPlaceholder");
             Object instancia = claseApi.getMethod("getInstance").invoke(null);
-            Method mGetPlayer = claseApi.getMethod("getPlayer", UUID.class);
-            Method mGetPlaceholderManager = claseApi.getMethod("getPlaceholderManager");
-            Method mGetPlaceholder = claseManager.getMethod("getPlaceholder", String.class);
-            Method mUpdate = clasePlayerPlaceholder.getMethod("update", claseTabPlayer);
             if (instancia == null) {
                 throw new IllegalStateException("TabAPI.getInstance() devolvio null");
             }
             api = instancia;
-            getPlayer = mGetPlayer;
-            getPlaceholderManager = mGetPlaceholderManager;
-            getPlaceholder = mGetPlaceholder;
+            getPlayer = claseApi.getMethod("getPlayer", UUID.class);
+            getPlaceholderManager = claseApi.getMethod("getPlaceholderManager");
+            getPlaceholder = claseManager.getMethod("getPlaceholder", String.class);
             playerPlaceholder = clasePlayerPlaceholder;
-            update = mUpdate;
+            update = clasePlayerPlaceholder.getMethod("update", claseTabPlayer);
             log.info("TAB detectado: el tablist se refresca al cambiar de Potencia.");
         } catch (ReflectiveOperationException | RuntimeException fallo) {
             log.log(Level.WARNING, "TAB presente pero su API no se pudo resolver; el tablist "
