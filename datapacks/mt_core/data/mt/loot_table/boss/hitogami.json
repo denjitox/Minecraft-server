@@ -1,0 +1,116 @@
+{
+  "type": "minecraft:entity",
+  "pools": [
+    {
+      "rolls": 2,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:diamond",
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 2,
+                "max": 5
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:netherite_scrap",
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 1,
+                "max": 3
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:emerald_block",
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 1,
+                "max": 2
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:enchanted_book",
+          "functions": [
+            {
+              "function": "minecraft:enchant_randomly",
+              "enchantments": [
+                "minecraft:sharpness",
+                "minecraft:unbreaking",
+                "minecraft:looting",
+                "minecraft:sweeping_edge"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:netherite_scrap",
+          "functions": [
+            {
+              "function": "minecraft:set_name",
+              "name": {"text": "Fragmento del Vacío", "color": "dark_purple", "italic": false}
+            },
+            {
+              "function": "minecraft:set_lore",
+              "lore": [
+                {"text": "Residual del poder de Hitogami.", "color": "gray", "italic": false},
+                {"text": "Trofeo de guerra.", "color": "dark_gray", "italic": false}
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:echo_shard",
+          "functions": [
+            {
+              "function": "minecraft:set_name",
+              "name": {"text": "Reliquia del Trono Roto", "color": "light_purple", "italic": false}
+            },
+            {
+              "function": "minecraft:set_lore",
+              "lore": [
+                {"text": "Quedó tras el colapso del juicio.", "color": "gray", "italic": false},
+                {"text": "Conquistado en las profundidades de Mushoku.", "color": "dark_gray", "italic": false}
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

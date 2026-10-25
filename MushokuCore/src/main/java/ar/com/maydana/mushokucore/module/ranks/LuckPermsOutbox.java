@@ -1,6 +1,7 @@
 package ar.com.maydana.mushokucore.module.ranks;
 
 import ar.com.maydana.mushokucore.integration.LuckPermsHook;
+import ar.com.maydana.mushokucore.integration.TabListRefresher;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.Instant;
@@ -31,9 +32,11 @@ import org.bukkit.Bukkit;
 public final class LuckPermsOutbox {
 
     private final PluginContext ctx;
+    private final TabListRefresher tablist;
 
     public LuckPermsOutbox(PluginContext ctx) {
         this.ctx = ctx;
+        this.tablist = new TabListRefresher(ctx.plugin());
     }
 
     /**
@@ -176,7 +179,9 @@ public final class LuckPermsOutbox {
                 ultimoError = excepcion.getClass().getSimpleName() + ": " + excepcion.getMessage();
             }
             marcar(fila.id(), ok, ultimoError);
-            if (!ok) {
+            if (ok) {
+                tablist.solicitar(fila.jugador()); // repinta el prefijo del tablist en el mismo ciclo
+            } else {
                 ctx.plugin().getLogger().warning("Outbox LP: reintento fallido para " + fila.jugador()
                         + " (" + fila.groupAdd() + "/" + fila.groupRemove() + "): " + ultimoError);
             }
@@ -228,6 +233,8 @@ public final class LuckPermsOutbox {
             }
             if (!ok) {
                 encolar(jugador, groupAdd, groupRemove, motivoError);
+            } else {
+                tablist.solicitar(jugador); // prefijo nuevo en el tablist sin esperar el refresco
             }
             return ok;
         } catch (RuntimeException excepcion) {

@@ -1,0 +1,109 @@
+# hitogami.sk - Tracking de daño y ítem único de Hitogami
+# NO tocar potencias.sk
+
+options:
+	boss_tag: "mt_boss"
+	first_flag_obj: "mt_boss_first_kill"
+	score_fight: "mt_fight"
+	score_end: "mt_end"
+
+on load:
+	set {_ver} to "1.0.0"
+	send "&5[Hitogami]&d Sistema de ítem único cargado v%{_ver}%" to console
+
+function hitogami_clear_dmg():
+	delete {hitogami.dmg::*}
+	delete {hitogami.total::*}
+	delete {hitogami.fight::*}
+
+function hitogami_format_date() :: string:
+	set {_d} to now
+	set {_year} to year of {_d}
+	set {_month} to month of {_d}
+	set {_day} to day of {_d}
+	return "%{_year}%-%{_month}%-%{_day}%"
+
+on damage:
+	victim is living
+	attacker is player
+	victim has scoreboard tag "{@boss_tag}"
+	
+	set {_uuid} to uuid of attacker
+	add damage to {hitogami.dmg::%{_uuid}%}
+	add damage to {hitogami.total::%{_uuid}%}
+	set {hitogami.name::%{_uuid}%} to name of attacker
+	set {hitogami.last_fight::%{_uuid}%} to now
+
+on death of ravager:
+	victim has scoreboard tag "{@boss_tag}"
+	
+	set {_first} to value of "global" from scoreboard objective "{@first_flag_obj}"
+	if {_first} is not set:
+		set {_first} to 0
+	
+	if {_first} is 0:
+		set {_top_uuid} to ""
+		set {_top_dmg} to 0
+		loop {hitogami.dmg::*}:
+			set {_uuid} to loop-index
+			set {_dmg} to {hitogami.dmg::%{_uuid}%}
+			if {_dmg} > {_top_dmg}:
+				set {_top_dmg} to {_dmg}
+				set {_top_uuid} to {_uuid}
+		
+		if {_top_uuid} is not "":
+			set {_p} to {_top_uuid} parsed as offlineplayer
+			set {_pname} to {hitogami.name::%{_top_uuid}%}
+			if {_pname} is not set:
+				set {_pname} to {_p}'s name
+			
+			set {_fecha} to hitogami_format_date()
+			
+			set {_sword} to netherite sword
+			set name of {_sword} to "&5Hoja de Hitogami"
+			set lore of {_sword} to "&7Conquistado por &f%{_pname}%", "&7Primera caída de Hitogami", "&8Fecha: %{_fecha}%", "", "&dArma conmemorativa del Trono Roto"
+			enchant {_sword} with sharpness 5
+			enchant {_sword} with unbreaking 3
+			enchant {_sword} with mending
+			
+			give {_sword} to {_p}
+			
+			execute console command "/scoreboard players set global mt_boss_first_kill 1"
+			
+			broadcast ""
+			broadcast "&5&l[HITOGAMI] &6¡PRIMERA CAÍDA MUNDIAL!"
+			broadcast "&eEl mayor daño le corresponde a &f%{_pname}% &e(&c%{_top_dmg}% daño&e)"
+			broadcast "&dSe le ha entregado &5Hoja de Hitogami &dcomo trofeo único."
+			broadcast ""
+			
+			play sound "ui.toast.challenge_complete" to all players
+		else:
+			execute console command "/scoreboard players set global mt_boss_first_kill 1"
+	
+	hitogami_clear_dmg()
+
+command /hitogami_reset_dmg:
+	permission: op
+	trigger:
+		hitogami_clear_dmg()
+		send "&a[Hitogami] Daño de la pelea limpiado." to player
+
+command /hitogami_top:
+	trigger:
+		set {_top_uuid} to ""
+		set {_top_dmg} to 0
+		loop {hitogami.dmg::*}:
+			set {_uuid} to loop-index
+			set {_dmg} to {hitogami.dmg::%{_uuid}%}
+			if {_dmg} > {_top_dmg}:
+				set {_top_dmg} to {_dmg}
+				set {_top_uuid} to {_uuid}
+		
+		if {_top_uuid} is "":
+			send "&c[Hitogami] No hay daño registrado en esta pelea." to player
+			stop
+		
+		set {_pname} to {hitogami.name::%{_top_uuid}%}
+		if {_pname} is not set:
+			set {_pname} to {_top_uuid} parsed as offlineplayer's name
+		send "&5[Hitogami]&d Top daño actual: &f%{_pname}% &7(&c%{_top_dmg}%&7)" to player

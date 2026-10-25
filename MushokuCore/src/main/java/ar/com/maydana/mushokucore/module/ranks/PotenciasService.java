@@ -99,6 +99,9 @@ public final class PotenciasService implements IPotenciasService {
     private final Map<Integer, Asiento> asientos = new ConcurrentHashMap<>();
     private final Map<UUID, Integer> puntuaciones = new ConcurrentHashMap<>();
 
+    /** Nombres vistos por {@link #nombreDe} en el hilo principal; las resoluciones async los leen. */
+    private final Map<UUID, String> nombres = new ConcurrentHashMap<>();
+
     /** Cableado por {@link PotenciasModule}: vuelca el buffer de daño ya mismo (§19 L864). */
     private volatile Runnable flushInmediato;
     private volatile boolean cacheLista;
@@ -441,6 +444,13 @@ public final class PotenciasService implements IPotenciasService {
         // pierde aunque el volcado se despache al hilo asíncrono (§11 L563).
         List<ContributionTracker.GolpeAcumulado> pendientes = tracker.drenarParaVuelco(bossUuid);
         ContributionTracker.Pelea pelea = tracker.cerrar(bossUuid);
+        // Cachea los nombres acá, en el hilo principal: la resolución async no puede tocar Bukkit
+        // y el ganador se guarda como dueño con su nombre en /potencias.
+        if (pelea != null) {
+            for (UUID jugador : pelea.danioPorJugador().keySet()) {
+                nombreDe(jugador);
+            }
+        }
         int puestoResuelto = puesto;
         enHiloAsync(() -> resolverMuerteDeJefeAsync(bossUuid, tipoJefe, mundo, puestoResuelto,
                 pendientes, pelea));
@@ -517,6 +527,7 @@ public final class PotenciasService implements IPotenciasService {
             return;
         }
         puntuaciones.merge(atacante, 1, Integer::sum); // optimista, en memoria
+        nombreDe(atacante); // el recálculo del puesto 5 corre async y lee el nombre de esta cache
         enHiloAsync(() -> registrarBajaValidaAsync(atacante, victima, mundo, ahoraMs));
     }
 
@@ -623,13 +634,23 @@ public final class PotenciasService implements IPotenciasService {
         return "potencia" + puesto;
     }
 
-    /** Nombre de presentación; solo consulta Bukkit si estamos en el hilo principal. */
+    /**
+     * Nombre de presentación. Bukkit solo se consulta en el hilo principal, y ahí queda
+     * cacheado: la muerte de jefe y el recálculo del puesto 5 asignan desde un hilo async.
+     */
     private String nombreDe(UUID jugador) {
-        if (jugador == null || !Bukkit.isPrimaryThread()) {
-            return null; // off-thread no se toca la API de Bukkit (plan §6 regla 3)
+        if (jugador == null) {
+            return null;
+        }
+        if (!Bukkit.isPrimaryThread()) {
+            return nombres.get(jugador);
         }
         Player enLinea = Bukkit.getPlayer(jugador);
-        return enLinea == null ? null : enLinea.getName();
+        String nombre = enLinea != null ? enLinea.getName() : Bukkit.getOfflinePlayer(jugador).getName();
+        if (nombre != null) {
+            nombres.put(jugador, nombre);
+        }
+        return nombre;
     }
 
     private void anunciar(int puesto, UUID jugador, String titulo) {

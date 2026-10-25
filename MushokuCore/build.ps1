@@ -3,97 +3,160 @@
   Compila MushokuCore SIN Gradle: solo JDK 25 + el paper-api local.
 
 .DESCRIPTION
-  javac contra el jar de la API de Paper que ya esta en el servidor local,
-  copia plugin.yml y empaqueta con la herramienta `jar`. 100% offline:
-  no descarga nada y no arranca el servidor de Minecraft.
+  javac contra el jar de la API de Paper que ya esta en el servidor local, copia
+  los recursos y empaqueta con la herramienta `jar`. 100% offline: no descarga
+  nada y no arranca el servidor de Minecraft.
+
+  Las dependencias se descubren por patron, no por version fija: si el servidor
+  actualiza un plugin, el build sigue funcionando.
+
+  -WhatIf no toca el disco; informa que se compilaria y termina.
+
+.PARAMETER LibRoot
+  Raiz `libraries` de Paper. Si se omite se busca `servidor\libraries` junto a
+  este script, un nivel arriba, y por ultimo en la ubicacion historica.
 
 .EXAMPLE
   .\build.ps1
   .\build.ps1 -LibRoot 'R:\otra_instalacion\libraries'
 #>
-[CmdletBinding(SupportsShouldProcess)]
+[CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
 param(
-    [string]$LibRoot = 'C:\Dev\OPENCLAUDIO\minecraft_server\servidor\libraries'
+    [string]$LibRoot
 )
 
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 
-# Classpath completo de compilación (verificado 2026-10-18 contra servidor\libraries):
-#  - paper-api necesita las clases de Adventure en el classpath (CommandSender extends Audience).
-#  - paper-api trae anotaciones @NotNull de org.jetbrains.annotations y referencia Guava. Si esas
-#    clases faltan, javac NO da un error legible: crashea con
-#    `CompletionFailure: class file for org.jetbrains.annotations.NotNull not found` (exit 4).
-#    Medido 2026-10-18 por el agente D; verificado por el integrador el mismo dia.
-#  - El jar de anotaciones solo existe dentro del plugin ajLeaderboards del servidor local.
-#  - El jar de PlaceholderAPI (plugin del servidor local) es necesario para compilar
-#    integration\MushokuExpansion.java (subclase de PlaceholderExpansion). Es compileOnly:
-#    en runtime el jar lo aporta plugins\PlaceholderAPI-*.jar, NO se empaqueta en el nuestro.
-$cpJars = @(
-    (Join-Path $LibRoot 'io\papermc\paper\paper-api\26.2.build.134-stable\paper-api-26.2.build.134-stable.jar'),
-    (Join-Path $LibRoot 'net\kyori\adventure-api\5.2.0\adventure-api-5.2.0.jar'),
-    (Join-Path $LibRoot 'net\kyori\adventure-key\5.2.0\adventure-key-5.2.0.jar'),
-    (Join-Path $LibRoot 'net\kyori\option\1.1.0\option-1.1.0.jar'),
-    (Join-Path $LibRoot 'net\md-5\bungeecord-chat\1.21-R0.2-deprecated+build.21\bungeecord-chat-1.21-R0.2-deprecated+build.21.jar'),
-    (Join-Path $LibRoot 'com\google\guava\guava\33.6.0-jre\guava-33.6.0-jre.jar'),
-    (Join-Path (Split-Path $LibRoot -Parent) 'plugins\ajLeaderboards\libs\org\jetbrains\annotations\13.0\annotations-13.0.jar'),
-    (Join-Path (Split-Path $LibRoot -Parent) 'plugins\PlaceholderAPI-2.12.3.jar'),
-    (Join-Path (Split-Path $LibRoot -Parent) 'plugins\Towny-0.103.2.0.jar')
-)
-foreach ($j in $cpJars) {
-    if (-not (Test-Path $j)) { throw "No se encuentra un jar del classpath: $j" }
+function Resolve-LibRoot {
+    param([string]$Explicit)
+
+    if ($Explicit) {
+        if (-not (Test-Path $Explicit)) { throw "El -LibRoot indicado no existe: $Explicit" }
+        return (Resolve-Path $Explicit).Path
+    }
+
+    # El arbol del servidor (servidor\, libraries\, plugins\) no esta en git:
+    # en cada PC vive al lado del repo o un nivel arriba.
+    $candidatos = @(
+        (Join-Path $root '..\servidor\libraries')
+        (Join-Path $root '..\..\servidor\libraries')
+        'C:\Dev\OPENCLAUDIO\minecraft_server\servidor\libraries'
+    )
+    foreach ($c in $candidatos) {
+        if (Test-Path $c) { return (Resolve-Path $c).Path }
+    }
+    throw "No se encontro 'servidor\libraries'. Pasa -LibRoot con la ruta al 'libraries' de Paper."
 }
+
+function Resolve-Dependencia {
+    param(
+        [Parameter(Mandatory)][string]$Directorio,
+        [Parameter(Mandatory)][string]$Patron,
+        [Parameter(Mandatory)][string]$Nombre
+    )
+
+    if (-not (Test-Path $Directorio)) { throw "Falta el directorio de $Nombre`: $Directorio" }
+
+    $encontrados = @(Get-ChildItem -LiteralPath $Directorio -Filter $Patron -File -Recurse -ErrorAction SilentlyContinue)
+    if ($encontrados.Count -eq 0) {
+        throw "Falta $Nombre ($Patron) en $Directorio"
+    }
+    if ($encontrados.Count -gt 1) {
+        $nombres = ($encontrados | ForEach-Object { $_.Name }) -join ', '
+        throw "Hay $($encontrados.Count) candidatos para $Nombre en ${Directorio}: $nombres"
+    }
+    return $encontrados[0].FullName
+}
+
+function Invoke-Nativo {
+    param(
+        [Parameter(Mandatory)][string]$Exe,
+        [Parameter(Mandatory)][string[]]$Arguments
+    )
+
+    # Con $ErrorActionPreference = 'Stop', PS 5.1 convierte el stderr de un comando
+    # nativo en NativeCommandError terminante, y javac escribe ahi un aviso inofensivo.
+    $previa = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $salida = & $Exe @Arguments 2>&1 | ForEach-Object { "$_" }
+        $codigo = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previa
+    }
+
+    foreach ($linea in $salida) { Write-Verbose $linea }
+    return $codigo
+}
+
+$LibRoot = Resolve-LibRoot -Explicit $LibRoot
+$serverRoot = Split-Path $LibRoot -Parent
+$pluginsDir = Join-Path $serverRoot 'plugins'
+
+$cpJars = @(
+    (Resolve-Dependencia (Join-Path $LibRoot 'io\papermc\paper\paper-api') 'paper-api-*.jar' 'paper-api')
+    (Resolve-Dependencia (Join-Path $LibRoot 'net\kyori\adventure-api') 'adventure-api-*.jar' 'adventure-api')
+    (Resolve-Dependencia (Join-Path $LibRoot 'net\kyori\adventure-key') 'adventure-key-*.jar' 'adventure-key')
+    (Resolve-Dependencia (Join-Path $LibRoot 'net\kyori\option') 'option-*.jar' 'adventure option')
+    (Resolve-Dependencia (Join-Path $LibRoot 'net\md-5\bungeecord-chat') 'bungeecord-chat-*.jar' 'bungeecord-chat')
+    (Resolve-Dependencia (Join-Path $LibRoot 'com\google\guava\guava') 'guava-*.jar' 'guava')
+    # paper-api referencia @NotNull: sin esas clases javac no da un error legible,
+    # crashea con CompletionFailure (exit 4). Solo existen dentro de ajLeaderboards.
+    (Resolve-Dependencia (Join-Path $pluginsDir 'ajLeaderboards\libs') 'annotations-*.jar' 'annotations de JetBrains')
+    # PlaceholderAPI y Towny son compileOnly: en runtime los aporta plugins\.
+    (Resolve-Dependencia $pluginsDir 'PlaceholderAPI-*.jar' 'PlaceholderAPI')
+    (Resolve-Dependencia $pluginsDir 'Towny-*.jar' 'Towny')
+)
 $classpath = $cpJars -join ';'
 
-# Usar javac del JAVA_HOME si esta definido; si no, el del PATH (verificado: ambos son Temurin 25).
+# Usar javac del JAVA_HOME si esta definido; si no, el del PATH (ambos Temurin 25).
 $javac = if ($env:JAVA_HOME) { Join-Path $env:JAVA_HOME 'bin\javac.exe' } else { 'javac' }
 $jar   = if ($env:JAVA_HOME) { Join-Path $env:JAVA_HOME 'bin\jar.exe' }   else { 'jar' }
 
-$srcDir  = Join-Path $root 'src\main\java'
-$resDir  = Join-Path $root 'src\main\resources'
-$outDir  = Join-Path $root 'build\classes'
-$libsDir = Join-Path $root 'build\libs'
-$outJar  = Join-Path $libsDir 'MushokuCore-1.0.0.jar'
+$srcDir   = Join-Path $root 'src\main\java'
+$resDir   = Join-Path $root 'src\main\resources'
+$buildDir = Join-Path $root 'build'
+$outDir   = Join-Path $buildDir 'classes'
+$libsDir  = Join-Path $buildDir 'libs'
+$outJar   = Join-Path $libsDir 'MushokuCore-1.0.0.jar'
 
-if (Test-Path (Join-Path $root 'build')) {
-    if ($PSCmdlet.ShouldProcess("$root\build", 'Remove build directory')) {
-        Remove-Item -Recurse -Force (Join-Path $root 'build')
-    } else {
-        Write-Verbose "WHATIF: se borraria $root\build"
-    }
+if (-not $PSCmdlet.ShouldProcess($root, "Compilar MushokuCore y escribir $outJar")) {
+    return
 }
+
+if (Test-Path $buildDir) { Remove-Item -Recurse -Force $buildDir }
 New-Item -ItemType Directory -Force -Path $outDir, $libsDir | Out-Null
 
+$ok = $false
 try {
     $sources = Get-ChildItem $srcDir -Recurse -Filter '*.java' | ForEach-Object { $_.FullName }
     if (-not $sources) { throw "No hay archivos .java en $srcDir" }
 
     Write-Verbose "== javac =="
-    & $javac -encoding UTF-8 --release 25 -classpath $classpath -d $outDir $sources
-    if ($LASTEXITCODE -ne 0) { throw "javac fallo con exit code $LASTEXITCODE" }
+    $argsJavac = @('-encoding', 'UTF-8', '--release', '25', '-classpath', $classpath, '-d', $outDir) + $sources
+    $codigo = Invoke-Nativo -Exe $javac -Arguments $argsJavac
+    if ($codigo -ne 0) { throw "javac fallo con exit code $codigo" }
 
     Write-Verbose "== recursos =="
-    # Copia TODOS los resources (plugin.yml, config.yml, messages.yml, diseases.yml, relics.yml
-    # y migrations/V001__initial.sql) preservando subdirectorios — Fase 0 2026-10-17.
+    # Copia plugin.yml, config.yml, messages.yml y migrations\ preservando subdirectorios.
     Copy-Item -Path (Join-Path $resDir '*') -Destination $outDir -Recurse -Force
 
     Write-Verbose "== jar =="
-    & $jar --create --file $outJar -C $outDir .
-    if ($LASTEXITCODE -ne 0) { throw "jar fallo con exit code $LASTEXITCODE" }
+    $codigo = Invoke-Nativo -Exe $jar -Arguments @('--create', '--file', $outJar, '-C', $outDir, '.')
+    if ($codigo -ne 0) { throw "jar fallo con exit code $codigo" }
 
-    $hash = (Get-FileHash $outJar -Algorithm SHA256).Hash
-    $size = (Get-Item $outJar).Length
-    Write-Host ""
-    Write-Host "JAR generado: $outJar"
-    Write-Host "Tamano:       $size bytes"
-    Write-Host "SHA256:       $hash"
+    $ok = $true
+
+    [pscustomobject]@{
+        Jar    = $outJar
+        Bytes  = (Get-Item $outJar).Length
+        Sha256 = (Get-FileHash $outJar -Algorithm SHA256).Hash
+    }
 } finally {
-    # Garantizar limpieza si falla a mitad (no deja build/ parcialmente escrito)
-    if (-not (Test-Path $outJar)) {
-        if (Test-Path (Join-Path $root 'build')) {
-            if ($PSCmdlet.ShouldProcess("$root\build", 'Cleanup failed build')) {
-                Remove-Item -Recurse -Force (Join-Path $root 'build') -ErrorAction SilentlyContinue
-            }
-        }
+    # Solo limpia si el build no llego a completarse: un jar viejo de una corrida
+    # anterior no debe hacer pasar por bueno un build fallido.
+    if (-not $ok -and (Test-Path $buildDir)) {
+        Remove-Item -Recurse -Force $buildDir -ErrorAction SilentlyContinue
     }
 }
