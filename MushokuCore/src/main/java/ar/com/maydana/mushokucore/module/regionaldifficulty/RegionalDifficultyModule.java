@@ -60,6 +60,8 @@ public final class RegionalDifficultyModule implements ModuleLifecycle {
         Set<String> excludedEntities = config.regionalDifficultyExcluidas();
         boolean trialSpawnerLimit = config.regionalDifficultyTrialSpawnerLimite();
         double trialSpawnerMaxHealthMultiplier = config.regionalDifficultyTrialSpawnerMaxHealthMultiplier();
+        boolean interpolate = config.regionalDifficultyInterpolar();
+        int blendDistance = config.regionalDifficultyBlendDistancia();
 
         Set<EntityType> excludedTypes = EnumSet.noneOf(EntityType.class);
         for (String name : excludedEntities) {
@@ -73,12 +75,14 @@ public final class RegionalDifficultyModule implements ModuleLifecycle {
 
         Listener spawnListener = new RegionalDifficultyListener(
                 plugin, centerX, centerZ, zones, dimensions,
-                excludedTypes, trialSpawnerLimit, trialSpawnerMaxHealthMultiplier
+                excludedTypes, trialSpawnerLimit, trialSpawnerMaxHealthMultiplier,
+                interpolate, blendDistance
         );
         ctx.registrarListener(spawnListener);
 
         log.info("Modulo 'regional-difficulty' habilitado: " + zones.size() + " zonas Overworld, "
-                + dimensions.size() + " dimensiones especiales, " + excludedTypes.size() + " entidades excluidas.");
+                + dimensions.size() + " dimensiones especiales, " + excludedTypes.size() + " entidades excluidas "
+                + "(interpolacion=" + interpolate + ", blend=" + blendDistance + ").");
     }
 
     @Override
@@ -97,6 +101,8 @@ public final class RegionalDifficultyModule implements ModuleLifecycle {
         private final Set<EntityType> excludedTypes;
         private final boolean trialSpawnerLimit;
         private final double trialSpawnerMaxHealthMultiplier;
+        private final boolean interpolate;
+        private final int blendDistance;
         private final NamespacedKey healthModifierKey;
         private final NamespacedKey damageModifierKey;
 
@@ -108,6 +114,20 @@ public final class RegionalDifficultyModule implements ModuleLifecycle {
                 Set<EntityType> excludedTypes,
                 boolean trialSpawnerLimit,
                 double trialSpawnerMaxHealthMultiplier) {
+            this(plugin, centerX, centerZ, zones, dimensions, excludedTypes, trialSpawnerLimit,
+                    trialSpawnerMaxHealthMultiplier, true, 200);
+        }
+
+        public RegionalDifficultyListener(
+                JavaPlugin plugin,
+                int centerX, int centerZ,
+                java.util.List<PluginConfig.RegionalDifficultyZone> zones,
+                java.util.Map<String, PluginConfig.RegionalDifficultyDimension> dimensions,
+                Set<EntityType> excludedTypes,
+                boolean trialSpawnerLimit,
+                double trialSpawnerMaxHealthMultiplier,
+                boolean interpolate,
+                int blendDistance) {
             this.centerX = centerX;
             this.centerZ = centerZ;
             this.zones = zones;
@@ -115,6 +135,8 @@ public final class RegionalDifficultyModule implements ModuleLifecycle {
             this.excludedTypes = excludedTypes;
             this.trialSpawnerLimit = trialSpawnerLimit;
             this.trialSpawnerMaxHealthMultiplier = trialSpawnerMaxHealthMultiplier;
+            this.interpolate = interpolate;
+            this.blendDistance = blendDistance > 0 ? blendDistance : 0;
             this.healthModifierKey = new NamespacedKey(plugin, "regional_health");
             this.damageModifierKey = new NamespacedKey(plugin, "regional_damage");
         }
@@ -147,19 +169,53 @@ public final class RegionalDifficultyModule implements ModuleLifecycle {
 
                 healthMultiplier = 1.0;
                 damageMultiplier = 1.0;
-                boolean zoneFound = false;
-                for (PluginConfig.RegionalDifficultyZone zone : zones) {
-                    if (distance <= zone.maxRadius()) {
-                        healthMultiplier = zone.healthMultiplier();
-                        damageMultiplier = zone.damageMultiplier();
-                        zoneFound = true;
-                        break;
+                if (!zones.isEmpty()) {
+                    PluginConfig.RegionalDifficultyZone currentZone = null;
+                    int currentIndex = -1;
+                    for (int i = 0; i < zones.size(); i++) {
+                        PluginConfig.RegionalDifficultyZone zone = zones.get(i);
+                        int minR = zone.minRadius();
+                        int maxR = zone.maxRadius();
+                        if (distance >= minR && distance <= maxR) {
+                            currentZone = zone;
+                            currentIndex = i;
+                            break;
+                        }
                     }
-                }
-                if (!zoneFound && !zones.isEmpty()) {
-                    PluginConfig.RegionalDifficultyZone lastZone = zones.get(zones.size() - 1);
-                    healthMultiplier = lastZone.healthMultiplier();
-                    damageMultiplier = lastZone.damageMultiplier();
+                    if (currentZone == null) {
+                        for (int i = zones.size() - 1; i >= 0; i--) {
+                            PluginConfig.RegionalDifficultyZone zone = zones.get(i);
+                            if (distance >= zone.minRadius()) {
+                                currentZone = zone;
+                                currentIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                    if (currentZone == null) {
+                        currentZone = zones.get(0);
+                        currentIndex = 0;
+                    }
+
+                    healthMultiplier = currentZone.healthMultiplier();
+                    damageMultiplier = currentZone.damageMultiplier();
+
+                    if (interpolate && blendDistance > 0 && currentIndex >= 0 && currentIndex < zones.size() - 1) {
+                        PluginConfig.RegionalDifficultyZone nextZone = zones.get(currentIndex + 1);
+                        double blendStart = Math.max(currentZone.minRadius(), currentZone.maxRadius() - blendDistance);
+                        if (distance >= blendStart && distance < nextZone.minRadius()) {
+                            double blendWidth = Math.max(1.0, nextZone.minRadius() - blendStart);
+                            double t = (distance - blendStart) / blendWidth;
+                            if (t < 0.0) {
+                                t = 0.0;
+                            }
+                            if (t > 1.0) {
+                                t = 1.0;
+                            }
+                            healthMultiplier = lerp(currentZone.healthMultiplier(), nextZone.healthMultiplier(), t);
+                            damageMultiplier = lerp(currentZone.damageMultiplier(), nextZone.damageMultiplier(), t);
+                        }
+                    }
                 }
             }
 
@@ -211,6 +267,10 @@ public final class RegionalDifficultyModule implements ModuleLifecycle {
                     AttributeModifier.Operation.ADD_NUMBER
             );
             attribute.addModifier(modifier);
+        }
+
+        private static double lerp(double from, double to, double t) {
+            return from + (to - from) * t;
         }
     }
 }

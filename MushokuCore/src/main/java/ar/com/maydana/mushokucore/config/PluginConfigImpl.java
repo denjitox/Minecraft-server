@@ -66,6 +66,8 @@ final class PluginConfigImpl implements PluginConfig {
     private final boolean regionalDifficultyHabilitado;
     private final int regionalDifficultyCentroX;
     private final int regionalDifficultyCentroZ;
+    private final boolean regionalDifficultyInterpolar;
+    private final int regionalDifficultyBlendDistancia;
     private final java.util.List<RegionalDifficultyZone> regionalDifficultyZonas;
     private final java.util.Map<String, RegionalDifficultyDimension> regionalDifficultyDimensiones;
     private final java.util.Set<String> regionalDifficultyExcluidas;
@@ -137,6 +139,8 @@ final class PluginConfigImpl implements PluginConfig {
         this.regionalDifficultyHabilitado = yaml.getBoolean("regional-difficulty.enabled", true);
         this.regionalDifficultyCentroX = yaml.getInt("regional-difficulty.center-x", 0);
         this.regionalDifficultyCentroZ = yaml.getInt("regional-difficulty.center-z", 0);
+        this.regionalDifficultyInterpolar = yaml.getBoolean("regional-difficulty.interpolate", true);
+        this.regionalDifficultyBlendDistancia = yaml.getInt("regional-difficulty.blend-distance", 200);
 
         this.regionalDifficultyZonas = parseZonas(yaml);
         this.regionalDifficultyDimensiones = parseDimensiones(yaml);
@@ -147,27 +151,67 @@ final class PluginConfigImpl implements PluginConfig {
     }
 
     private java.util.List<RegionalDifficultyZone> parseZonas(FileConfiguration yaml) {
-        java.util.List<RegionalDifficultyZone> zonas = new java.util.ArrayList<>();
+        java.util.List<ZonaParseada> zonasParseadas = new java.util.ArrayList<>();
         int indice = 0;
         for (java.util.Map<?, ?> mapa : yaml.getMapList("regional-difficulty.zones")) {
             indice++;
             Object nombre = mapa.get("name");
             String name = nombre == null ? "zona_" + indice : String.valueOf(nombre);
             int maxRadius = entero(mapa.get("max-radius"), 0);
+            int minRadius = entero(mapa.get("min-radius"), Integer.MIN_VALUE);
             double healthMultiplier = decimal(mapa.get("health-multiplier"), 1.0);
             double damageMultiplier = decimal(mapa.get("damage-multiplier"), 1.0);
             if (maxRadius > 0 && Double.isFinite(healthMultiplier) && healthMultiplier > 0.0
                     && Double.isFinite(damageMultiplier) && damageMultiplier > 0.0) {
-                zonas.add(new RegionalDifficultyZoneImpl(name, maxRadius, healthMultiplier, damageMultiplier));
+                zonasParseadas.add(new ZonaParseada(name, minRadius, maxRadius, healthMultiplier, damageMultiplier));
             }
         }
-        if (zonas.isEmpty()) {
-            zonas.add(new RegionalDifficultyZoneImpl("zona_cercana", 2000, 1.10, 1.10));
-            zonas.add(new RegionalDifficultyZoneImpl("zona_media", 6000, 1.20, 1.15));
-            zonas.add(new RegionalDifficultyZoneImpl("zona_lejana", 10900, 1.35, 1.25));
+        if (zonasParseadas.isEmpty()) {
+            zonasParseadas.add(new ZonaParseada("zona_cercana", 0, 2000, 1.10, 1.10));
+            zonasParseadas.add(new ZonaParseada("zona_media", 2001, 6000, 1.20, 1.15));
+            zonasParseadas.add(new ZonaParseada("zona_lejana", 6001, 10900, 1.35, 1.25));
+        } else {
+            zonasParseadas.sort(java.util.Comparator.comparingInt(ZonaParseada::maxRadius));
+            int ultimoMax = -1;
+            for (int i = 0; i < zonasParseadas.size(); i++) {
+                ZonaParseada zona = zonasParseadas.get(i);
+                int minCalc = zona.minRadius;
+                if (minCalc < 0) {
+                    if (i == 0) {
+                        minCalc = 0;
+                    } else {
+                        minCalc = ultimoMax + 1;
+                    }
+                }
+                if (minCalc > zona.maxRadius) {
+                    minCalc = i == 0 ? 0 : ultimoMax + 1;
+                }
+                zonasParseadas.set(i, new ZonaParseada(zona.name, minCalc, zona.maxRadius, zona.healthMultiplier, zona.damageMultiplier));
+                ultimoMax = zona.maxRadius;
+            }
         }
-        zonas.sort(java.util.Comparator.comparingInt(RegionalDifficultyZone::maxRadius));
+
+        java.util.List<RegionalDifficultyZone> zonas = new java.util.ArrayList<>();
+        for (ZonaParseada zona : zonasParseadas) {
+            zonas.add(new RegionalDifficultyZoneImpl(zona.name, zona.minRadius, zona.maxRadius, zona.healthMultiplier, zona.damageMultiplier));
+        }
         return java.util.List.copyOf(zonas);
+    }
+
+    private static final class ZonaParseada {
+        private final String name;
+        private final int minRadius;
+        private final int maxRadius;
+        private final double healthMultiplier;
+        private final double damageMultiplier;
+
+        ZonaParseada(String name, int minRadius, int maxRadius, double healthMultiplier, double damageMultiplier) {
+            this.name = name;
+            this.minRadius = minRadius;
+            this.maxRadius = maxRadius;
+            this.healthMultiplier = healthMultiplier;
+            this.damageMultiplier = damageMultiplier;
+        }
     }
 
     private static int entero(Object valor, int porDefecto) {
@@ -257,6 +301,8 @@ final class PluginConfigImpl implements PluginConfig {
     @Override public boolean regionalDifficultyHabilitado() { return regionalDifficultyHabilitado; }
     @Override public int regionalDifficultyCentroX() { return regionalDifficultyCentroX; }
     @Override public int regionalDifficultyCentroZ() { return regionalDifficultyCentroZ; }
+    @Override public boolean regionalDifficultyInterpolar() { return regionalDifficultyInterpolar; }
+    @Override public int regionalDifficultyBlendDistancia() { return regionalDifficultyBlendDistancia; }
     @Override public java.util.List<RegionalDifficultyZone> regionalDifficultyZonas() { return regionalDifficultyZonas; }
     @Override public java.util.Map<String, RegionalDifficultyDimension> regionalDifficultyDimensiones() { return regionalDifficultyDimensiones; }
     @Override public java.util.Set<String> regionalDifficultyExcluidas() { return regionalDifficultyExcluidas; }
@@ -265,18 +311,25 @@ final class PluginConfigImpl implements PluginConfig {
 
     private static final class RegionalDifficultyZoneImpl implements RegionalDifficultyZone {
         private final String name;
+        private final int minRadius;
         private final int maxRadius;
         private final double healthMultiplier;
         private final double damageMultiplier;
 
         RegionalDifficultyZoneImpl(String name, int maxRadius, double healthMultiplier, double damageMultiplier) {
+            this(name, 0, maxRadius, healthMultiplier, damageMultiplier);
+        }
+
+        RegionalDifficultyZoneImpl(String name, int minRadius, int maxRadius, double healthMultiplier, double damageMultiplier) {
             this.name = name;
+            this.minRadius = minRadius;
             this.maxRadius = maxRadius;
             this.healthMultiplier = healthMultiplier;
             this.damageMultiplier = damageMultiplier;
         }
 
         @Override public String name() { return name; }
+        @Override public int minRadius() { return minRadius; }
         @Override public int maxRadius() { return maxRadius; }
         @Override public double healthMultiplier() { return healthMultiplier; }
         @Override public double damageMultiplier() { return damageMultiplier; }

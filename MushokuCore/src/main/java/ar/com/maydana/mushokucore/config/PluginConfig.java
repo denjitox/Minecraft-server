@@ -199,8 +199,8 @@ public interface PluginConfig {
     int regionalDifficultyCentroZ();
 
     /**
-     * {@code regional-difficulty.zones} — lista de zonas Overworld con radio máximo y multiplicadores.
-     * Cada zona: name, max-radius, health-multiplier, damage-multiplier.
+     * {@code regional-difficulty.zones} — lista de zonas Overworld con radio mínimo/máximo y multiplicadores.
+     * Cada zona: name, min-radius (opcional), max-radius, health-multiplier, damage-multiplier.
      */
     java.util.List<RegionalDifficultyZone> regionalDifficultyZonas();
 
@@ -219,9 +219,22 @@ public interface PluginConfig {
     /** {@code regional-difficulty.trial-spawner-max-health-multiplier} — tope de vida para Trial Spawners. */
     double regionalDifficultyTrialSpawnerMaxHealthMultiplier();
 
+    /** {@code regional-difficulty.interpolate} — transición suave entre zonas (default true). */
+    default boolean regionalDifficultyInterpolar() {
+        return true;
+    }
+
+    /** {@code regional-difficulty.blend-distance} — bloques de transición entre zonas (default 200). */
+    default int regionalDifficultyBlendDistancia() {
+        return 200;
+    }
+
     /** Zona de dificultad regional (Overworld). */
     interface RegionalDifficultyZone {
         String name();
+        default int minRadius() {
+            return 0;
+        }
         int maxRadius();
         double healthMultiplier();
         double damageMultiplier();
