@@ -28,7 +28,8 @@ argumentos. Desde otra máquina:
 
 Se buscan por patrón dentro del árbol del servidor. Cada patrón debe dar
 **exactamente un** archivo; si hay dos versiones, el build falla y nombra los
-candidatos, en vez de elegir una en silencio.
+candidatos, en vez de elegir una en silencio. Los jars ubicados en directorios
+`relocated` se excluyen porque son copias internas reubicadas de otros plugins.
 
 | Artefacto | Patrón | Origen |
 |---|---|---|
@@ -70,4 +71,5 @@ Si el build falla, `build\` se borra para no dejar un parcial que parezca bueno.
 | Ambigüedad de versiones detectada | Verificado (dos `paper-api` → error con ambos nombres) |
 | Dependencia faltante nombrada | Verificado (`Towny` ausente → error explícito) |
 | Trampa de stderr en PS 5.1 | **No reproduce** con invocación directa en 5.1.19041; sí al capturar `2>&1` con `EAP=Stop`. `Invoke-Nativo` esquiva ambos casos. |
-| Compilación real | **No ejecutada**: esta notebook no tiene JDK ni `servidor\libraries` |
+| Compilación real | Correcta en la PC principal con JDK 25 y el árbol histórico de `servidor` (2026-10-25) |
+| Prueba `FactionsPolicyTest` | `FACTIONS_POLICY_CHECK_OK` (2026-10-25) |

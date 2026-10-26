@@ -58,7 +58,10 @@ function Resolve-Dependencia {
 
     if (-not (Test-Path $Directorio)) { throw "Falta el directorio de $Nombre`: $Directorio" }
 
-    $encontrados = @(Get-ChildItem -LiteralPath $Directorio -Filter $Patron -File -Recurse -ErrorAction SilentlyContinue)
+    $encontrados = @(
+        Get-ChildItem -LiteralPath $Directorio -Filter $Patron -File -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -notmatch '[\\/]relocated[\\/]' }
+    )
     if ($encontrados.Count -eq 0) {
         throw "Falta $Nombre ($Patron) en $Directorio"
     }

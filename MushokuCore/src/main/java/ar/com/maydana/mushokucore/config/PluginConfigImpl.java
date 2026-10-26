@@ -171,7 +171,7 @@ final class PluginConfigImpl implements PluginConfig {
             zonasParseadas.add(new ZonaParseada("zona_media", 2001, 6000, 1.20, 1.15));
             zonasParseadas.add(new ZonaParseada("zona_lejana", 6001, 10900, 1.35, 1.25));
         } else {
-            zonasParseadas.sort(java.util.Comparator.comparingInt(ZonaParseada::maxRadius));
+            zonasParseadas.sort(java.util.Comparator.comparingInt(zona -> zona.maxRadius));
             int ultimoMax = -1;
             for (int i = 0; i < zonasParseadas.size(); i++) {
                 ZonaParseada zona = zonasParseadas.get(i);

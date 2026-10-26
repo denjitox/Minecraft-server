@@ -71,3 +71,48 @@ ningún parámetro para forzar el build.
 - El formato por grupo de TAB (`groups.yml`) sigue a `permission-refresh-interval`; adelantarlo
   requiere API interna de TAB.
 - Falta la prueba con un jugador real: matar un jefe y correr `/potencias` sin reconectar.
+
+## Integración en la PC principal
+
+La compilación se repitió en la PC principal, donde están JDK 25 y el árbol pesado del servidor.
+
+### Errores encontrados
+
+El primer intento detectó dos `annotations-13.0.jar`: el original y una copia interna bajo
+`relocated/ajLeaderboards`. El error completo quedó en
+`%TEMP%\opencode\minecraft_repo_build_20261025.log`. `build.ps1` ahora ignora directorios
+`relocated`; mantiene el fallo estricto cuando existen dos dependencias reales.
+
+El segundo intento encontró una referencia de método inválida:
+
+```text
+PluginConfigImpl.java:174: error: invalid method reference
+zonasParseadas.sort(java.util.Comparator.comparingInt(ZonaParseada::maxRadius));
+cannot find symbol: method maxRadius()
+location: class ZonaParseada
+1 error
+javac fallo con exit code 1
+```
+
+`ZonaParseada` usa campos, no accessors. Se cambió la referencia por `zona -> zona.maxRadius`.
+
+### Resultado
+
+- Build aislado correcto; Paper no se inició.
+- `FactionsPolicyTest`: `FACTIONS_POLICY_CHECK_OK`.
+- JAR: 246.367 bytes.
+- SHA256: `7045C6104395FF90CDE9F29F694A647C329A2511225CE6F2EA34089EB026E37E`.
+- Sigue pendiente la prueba runtime de facciones, claims, dificultad regional y refresco de TAB.
+
+## Despliegue al hosting
+
+Se subieron y verificaron por lectura remota:
+
+- `MushokuCore-1.0.0.jar`: 246.367 bytes, SHA256
+  `7045C6104395FF90CDE9F29F694A647C329A2511225CE6F2EA34089EB026E37E`;
+- `plugins/MushokuCore/config.yml`: `modules.factions=true`;
+- `plugins/MushokuCore/messages.yml`: se agregó el bloque `factions` sin reemplazar el resto.
+
+Los tres archivos anteriores tienen respaldo remoto con sufijo
+`.bak-20261025T181121Z`. El servidor no se reinició desde esta sesión; la carga del JAR y la
+migración V002 siguen pendientes del reinicio del panel.
