@@ -1,4 +1,4 @@
-﻿﻿# 00 — Plan de desarrollo MushokuCore 1.0 (MVP)
+﻿# 00 — Plan de desarrollo MushokuCore 1.0 (MVP)
 
 > Plan operativo para ejecutarse con agentes paralelos. Generado 2026-10-17.
 > **Regla rectora:** nada de este plan es válido si no se verifica en disco antes de usarlo.
@@ -18,7 +18,7 @@
 | `MT_Server_Base_26.2\datapacks\mt_core\` | **17 archivos**: 13 `.mcfunction` (4 raíz + 9 en `relics/`), 2 advancements, 1 tag `load.json`, `pack.mcmeta` (`min_format [107,1]`, `max_format 107`). Copias en `servidor\datapacks\mt_core` y `servidor\world\datapacks\mt_core` también con 17 archivos |
 | Skript | `potencias.sk` (4057 B, 111 líneas) y `enfermedades.sk` (3073 B, 76 líneas). Las copias de `MT_Server_Base_26.2` y `servidor` son **byte-idénticas** (SHA256 `33660EB8…` y `174EA46F…`) |
 | `servidor\plugins\Skript\variables.csv` | **107 B, solo cabecera: NO hay variables persistidas** → hoy no hay datos Skript que importar (verificado) |
-| `servidor\plugins` (19 plugins) | Están: Towny, LuckPerms, floodgate, Geyser-Spigot, PlaceholderAPI, TAB, DecentHolograms, Skript, CoreProtect, LevelledMobs, Duels, WorldGuard, FAWE, ViaVersion, spark, ajLeaderboards, Chunky, InventoryRollbackPlus, **MushokuCore-1.0.0.jar** (200.688 B, SHA256 `cc2140d5e4e637f1b0c8c8a1e5d1c2b3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9`)
+| `servidor\plugins` (19 plugins) | Están: Towny, LuckPerms, floodgate, Geyser-Spigot, PlaceholderAPI, TAB, DecentHolograms, Skript, CoreProtect, LevelledMobs, Duels, WorldGuard, FAWE, ViaVersion, spark, ajLeaderboards, Chunky, InventoryRollbackPlus, **MushokuCore-1.0.0.jar** (200.688 B, SHA256 `cc2140d5ec439ca5afee1e42d4776f4ad4a6633646a53f7d9d1ab3950917d0dd`) |
 | Java | Temurin **25.0.4.1** (`java -version`, este turno). `servidor\paper.jar` existe (build no verificado este turno) |
 | Repo del plugin | Existe en **`C:\Dev\OPENCLAUDIO\MushokuCore`** (80 `.java`, `build.ps1`, `pom.xml` ausente — build manual)
 | `INSTRUCCIONES\plan_desarrollo\` | **No existía**; creada con este documento |

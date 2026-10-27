@@ -70,18 +70,42 @@ if ($esAdmin) {
 
 # --- 6. Reiniciar sshd para tomar el shell por defecto ---
 Restart-Service sshd
+
+# --- 7. Datos para la notebook ---
+# Solo adaptadores con puerta de enlace: descarta loopback, Teredo, VPN caidas
+# y adaptadores virtuales que reportan 0.0.0.0.
+$ip = Get-NetIPConfiguration |
+    Where-Object { $_.IPv4DefaultGateway -and $_.NetAdapter.Status -eq 'Up' } |
+    ForEach-Object { $_.IPv4Address.IPAddress } |
+    Where-Object { $_ -match '^\d{1,3}(\.\d{1,3}){3}$' -and $_ -ne '0.0.0.0' }
+
 Write-Output ""
 Write-Output "LISTO. Pasale estos datos a la notebook:"
 Write-Output ("  usuario: " + $env:USERNAME)
-Write-Output ("  IP:      " + ((Get-NetIPAddress -AddressFamily IPv4 |
-    Where-Object { $_.IPAddress -notlike '127.*' -and $_.PrefixOrigin -ne 'WellKnown' } |
-    Select-Object -ExpandProperty IPAddress) -join ', '))
+Write-Output ("  equipo:  " + $env:COMPUTERNAME)
+Write-Output ("  sshd:    " + (Get-Service sshd).Status)
+if ($ip) {
+    Write-Output ("  IP LAN:  " + ($ip -join ', '))
+} else {
+    Write-Output "  IP LAN:  no detectada. Correr 'ipconfig' y buscar la IPv4 del"
+    Write-Output "           adaptador cuya 'Puerta de enlace predeterminada' no este vacia."
+}
 ```
 
 ## Paso 2: datos que necesito
 
-El usuario y la IP salen impresos al final del bloque. Con eso ajusto
-`~\.ssh\config` en la notebook.
+El usuario y la IP salen impresos al final del bloque. Si algo no aparece
+porque el bloque cortó antes, sacarlos a mano:
+
+```powershell
+whoami
+Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway } |
+    ForEach-Object { "$($_.InterfaceAlias): $($_.IPv4Address.IPAddress)" }
+Get-Service sshd | Select-Object Status, StartType
+```
+
+`whoami` devuelve `equipo\usuario`: el usuario SSH es la parte de la derecha.
+Con eso ajusto `~\.ssh\config` en la notebook.
 
 ## Paso 3: verificar
 
