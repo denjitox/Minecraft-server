@@ -19,6 +19,8 @@ modules:
   dimensions: false      # DECISION D4 (2026-10-18): false en MVP (1.3); spec §9 L405 decia true.
   bedrock-bridge: true
   regional-difficulty: true
+  market: true             # mercado de administracion: diamantes fisicos, sin Vault
+  npcs: true               # vecinos con skin, dialogo, regalos y trueques
 
 world:
   # Las 3 claves siguientes son DECISIONES DEL USUARIO (2026-10-16/17): manda el usuario.
@@ -147,6 +149,19 @@ audit:
   # (plugins/MushokuCore/auditoria/) las filas de audit_log con occurred_at de mas de 7 dias y las
   # borra. 0 o negativo = poda desactivada.
   retention-days: 7
+
+# ---- market (economia por diamantes) ----
+# El catalogo de ofertas vive en market.yml. Aca solo va el freno anti-abuso.
+market:
+  max-purchases-per-minute: 10   # compras por jugador en ventana de 60 s; 0 no se admite, minimo 1
+
+# ---- npcs (vecinos) ----
+# Las definiciones y las skins viven en npcs.yml; las coordenadas en npcs-locations.yml,
+# que se escribe solo con /vecino colocar y /vecino quitar.
+npcs:
+  reputation-high: 10      # desde este valor el dialogo usa la lista "alta"
+  reputation-low: -5       # hasta este valor usa la lista "baja"
+  routine-seconds: 20      # cada cuanto giran los vecinos hacia el jugador mas cercano; 0 apaga la rutina
 
 # Claves del config schema 1 viejo (essential_clickable_chat, require_offhand, require_entity_glow,
 # custom_enchantments, custom_anvil_recipes) se descartan: [DECISION D16 del plan] — son guardas que

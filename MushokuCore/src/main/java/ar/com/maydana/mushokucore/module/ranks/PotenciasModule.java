@@ -4,9 +4,11 @@ import ar.com.maydana.mushokucore.bootstrap.PluginContext;
 import ar.com.maydana.mushokucore.command.PotenciasCommand;
 import ar.com.maydana.mushokucore.database.IDatabase;
 import ar.com.maydana.mushokucore.database.repository.BossDamageRepository;
+import ar.com.maydana.mushokucore.database.repository.PlayerRepository;
 import ar.com.maydana.mushokucore.database.repository.PowerRepository;
 import ar.com.maydana.mushokucore.database.repository.PvpRepository;
 import ar.com.maydana.mushokucore.listener.BossDamageListener;
+import ar.com.maydana.mushokucore.listener.PotenciasJoinListener;
 import ar.com.maydana.mushokucore.listener.PvPKillListener;
 import ar.com.maydana.mushokucore.module.ModuleLifecycle;
 import ar.com.maydana.mushokucore.module.ranks.task.BossBufferFlushTask;
@@ -15,6 +17,7 @@ import ar.com.maydana.mushokucore.module.ranks.task.PowerReconcileTask;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitScheduler;
 import org.bukkit.scheduler.BukkitTask;
@@ -87,13 +90,21 @@ public final class PotenciasModule implements ModuleLifecycle {
         PowerRepository powers = new PowerRepository(db);
         BossDamageRepository bossDamage = new BossDamageRepository(db);
         PvpRepository pvp = new PvpRepository(db);
+        PlayerRepository jugadores = new PlayerRepository(db);
         this.tracker = new ContributionTracker();
         LuckPermsOutbox outbox = new LuckPermsOutbox(ctx);
-        this.servicio = new PotenciasService(ctx, powers, bossDamage, pvp, tracker, outbox);
+        this.servicio = new PotenciasService(ctx, powers, bossDamage, pvp, tracker, outbox, jugadores);
 
         // Carga de caché y siembra de world_powers: el servicio despacha a un hilo asíncrono
         // (IDatabase prohíbe el hilo principal, §26 L1039).
         this.servicio.cargarCache();
+        this.servicio.cargarNombres();
+
+        // Si el plugin arranca con jugadores online (recarga), no pasan por PlayerJoinEvent:
+        // se cachean ahora, en el hilo principal, antes de que cualquier tarea async los lea.
+        for (Player enLinea : ctx.plugin().getServer().getOnlinePlayers()) {
+            this.servicio.recordarNombre(enLinea.getUniqueId(), enLinea.getName());
+        }
 
         // Vuelco del buffer de daño: periódico e inmediato (§19 L863-864).
         this.flushTask = new BossBufferFlushTask(tracker, bossDamage, log);
@@ -117,6 +128,7 @@ public final class PotenciasModule implements ModuleLifecycle {
         // Listeners (§11 L553, L577) y comando (§17 L816-817).
         ctx.registrarListener(new BossDamageListener(ctx, servicio, tracker));
         ctx.registrarListener(new PvPKillListener(ctx, servicio, pvp));
+        ctx.registrarListener(new PotenciasJoinListener(servicio));
         PotenciasCommand comando = new PotenciasCommand(ctx);
         ctx.registrarComando("potencias", comando, comando);
 

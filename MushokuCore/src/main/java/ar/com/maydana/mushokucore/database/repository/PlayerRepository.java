@@ -1,6 +1,8 @@
 package ar.com.maydana.mushokucore.database.repository;
 
 import ar.com.maydana.mushokucore.database.IDatabase;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -58,6 +60,25 @@ public final class PlayerRepository {
                     }
                     return Optional.empty();
                 }
+            } catch (java.sql.SQLException excepcion) {
+                throw Sql.reenviar(excepcion);
+            }
+        });
+    }
+
+    /**
+     * Todos los nombres persistidos (uuid -> last_name). Permite precargar la cache de nombres
+     * del plugin sin tocar Bukkit ni el hilo principal.
+     */
+    public CompletableFuture<Map<UUID, String>> nombresConocidos() {
+        return db.read(conexion -> {
+            Map<UUID, String> nombres = new HashMap<>();
+            try (var preparada = conexion.prepareStatement("SELECT uuid, last_name FROM players");
+                 var filas = preparada.executeQuery()) {
+                while (filas.next()) {
+                    nombres.put(UUID.fromString(filas.getString(1)), filas.getString(2));
+                }
+                return nombres;
             } catch (java.sql.SQLException excepcion) {
                 throw Sql.reenviar(excepcion);
             }

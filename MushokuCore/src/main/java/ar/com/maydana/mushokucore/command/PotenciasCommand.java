@@ -82,6 +82,11 @@ public final class PotenciasCommand implements CommandExecutor, TabCompleter {
             String propietario = "No conquistado"; // messages.yml comenta este literal
             if (dueno.isPresent() && dueno.get().dueno() != null) {
                 String nombre = dueno.get().nombreDueno();
+                if (nombre == null || nombre.isBlank()) {
+                    // Filas viejas guardadas con owner_name NULL: se resuelve acá, en el hilo
+                    // principal, antes de caer al UUID crudo.
+                    nombre = Bukkit.getOfflinePlayer(dueno.get().dueno()).getName();
+                }
                 propietario = (nombre == null || nombre.isBlank())
                         ? dueno.get().dueno().toString()
                         : nombre;

@@ -23,7 +23,7 @@ Rama actual: (sin git verificado desde este entorno)
 - [ ] **Fases Hitogami**: Añadir fases, adds, evoker_fangs, teletransporte (actualmente solo invocación + derrota).
 - [ ] **Reliquias config**: Crear config lista para pegar en servidor live basado en `docs/INSTRUCCIONES/MT_Estadisticas_Tecnicas_Reliquias.md`. Implementar las 7 reliquias (suppression_ring, sara_earring, migurd_pendant, paul_sword, superd_spear, aqua_heartia, magic_armor_mk1) con sus valores PvE/PvP, cooldowns, límites globales, ranuras virtuales.
 - [ ] **Nether personalizado**: Decidir biomas/ambiente (datapack) o bloqueo por progreso (módulo `dimensions`).
-- [ ] **Aldeanos con skins**: Usar skins de `docs/perugius/skins/`, Citizens + Mineskin.
+- [ ] **Aldeanos con skins**: implementado en el módulo `npcs` de MushokuCore (Mannequin + `npcs.yml`), sin compilar ni probar. Ver `docs/MushokuCore/INSTRUCTIVO_MERCADO_Y_VECINOS_2026-10-27.md`. Citizens + Mineskin queda como alternativa si Bedrock no renderiza la entidad.
 - [ ] **Regional difficulty runtime test**: Probar con spawns reales.
 
 ## Compilación (leer antes de buildear)
@@ -52,6 +52,16 @@ Cambios del 2026-10-25, **sin compilar ni probar en runtime**:
 - [ ] `module/ranks/PotenciasService.java`: caché `nombres` poblada en el hilo principal; `nombreDe()` la lee desde async. Antes devolvía `null` en rutas async, así que `/potencias` mostraba el UUID y lo grababa en `world_powers.nombre_dueno`.
 - [ ] **Config necesaria**: TAB debe usar los placeholders de LuckPerms (o formato por grupo), y los grupos `potencia1..7` necesitan prefijo y **peso mayor que `default`** para que LuckPerms los tome como primario. Sin eso el refresco corre pero no hay nada distinto que pintar.
 - [ ] El formato por grupo (`groups.yml`) sigue atado a `permission-refresh-interval` de TAB (1000 ms); la API pública no permite adelantarlo.
+
+## Mercado y vecinos (compila, sin probar en servidor)
+
+Cambios del 2026-10-27. Código completo en `MushokuCore`: módulos `market` y `npcs`, migración `V003`, repositorios, `market.yml`, `npcs.yml`, `messages.yml`. **Los 113 fuentes compilan** con `javac 25` contra `paper-api 1.21.9` (148 clases, jar de prueba de 320.483 B) y las tres migraciones se aplican sobre SQLite. **Nunca corrió con el plugin cargado.** Instructivo paso a paso: `docs/MushokuCore/INSTRUCTIVO_MERCADO_Y_VECINOS_2026-10-27.md`.
+
+- [ ] Generar el jar oficial con `powershell -NoProfile -ExecutionPolicy Bypass -File .\MushokuCore\build.ps1` desde un proceso hijo (el jar de la notebook fue solo verificación y no se desplegó).
+- [ ] Copiar `messages.yml` y `config.yml` a `plugins\MushokuCore\` antes de reiniciar (Paper no re extrae recursos existentes).
+- [ ] Verificar en el log: `Modulo 'market' habilitado: 5 categoria(s), 30 item(s).` y `Modulo 'npcs' habilitado: 12 definicion(es), ...`.
+- [ ] Probar `/mercado`, `/vecino colocar`, diálogo, regalo, trueques y reputación en Java y en Bedrock.
+- [ ] Publicar los 12 PNG y correr `docs\perugius\skins\generar_skins.ps1 -PublicBaseUrl ...` antes de esperar skins.
 
 ## Archivos clave
 - `datapacks/mt_core/` - Todo el sistema Hitogami

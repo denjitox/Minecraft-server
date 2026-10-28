@@ -28,8 +28,11 @@ public final class DiseaseInfectionListener implements Listener {
 
     private static final Map<EntityType, String> FUENTES = Map.of(
             EntityType.HUSK, "HUSK_DAMAGE",
+            EntityType.ZOMBIE, "ZOMBIE_DAMAGE",
+            EntityType.DROWNED, "DROWNED_DAMAGE",
             EntityType.CAVE_SPIDER, "CAVE_SPIDER_DAMAGE",
             EntityType.SILVERFISH, "SILVERFISH_DAMAGE",
+            EntityType.SPIDER, "SPIDER_DAMAGE",
             EntityType.ENDERMAN, "ENDERMAN_DAMAGE");
 
     private final DiseasesService servicio;

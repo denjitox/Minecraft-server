@@ -157,6 +157,9 @@ public final class MushokuCommand implements CommandExecutor, TabCompleter {
         modulo(emisor, "relics", config.moduloRelics(), false);
         modulo(emisor, "dimensions", config.moduloDimensions(), false);
         modulo(emisor, "bedrock-bridge", config.moduloBedrockBridge(), null);
+        modulo(emisor, "regional-difficulty", config.moduloRegionalDifficulty(), null);
+        modulo(emisor, "market", config.moduloMarket(), null);
+        modulo(emisor, "npcs", config.moduloNpcs(), null);
 
         IDatabase db = Textos.opcional(ctx::db);
         Textos.enviar(emisor, "&7Base de datos: &f" + (db == null ? "no provista" : "provista"));
@@ -219,6 +222,15 @@ public final class MushokuCommand implements CommandExecutor, TabCompleter {
         }
         if (config.moduloBedrockBridge()) {
             activos.add("bedrock-bridge");
+        }
+        if (config.moduloRegionalDifficulty()) {
+            activos.add("regional-difficulty");
+        }
+        if (config.moduloMarket()) {
+            activos.add("market");
+        }
+        if (config.moduloNpcs()) {
+            activos.add("npcs");
         }
         return activos.isEmpty() ? "ninguno" : String.join(", ", activos);
     }

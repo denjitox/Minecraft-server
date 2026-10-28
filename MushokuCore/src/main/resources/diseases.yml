@@ -10,7 +10,9 @@ dryne:
   display-name: "Fiebre de Dryne"
   sources:
     - HUSK_DAMAGE
-  base-chance-percent: 4.0
+    - ZOMBIE_DAMAGE
+    - DROWNED_DAMAGE
+  base-chance-percent: 2.5
   duration-seconds: 180
   effects:
     WEAKNESS: 0
@@ -24,7 +26,8 @@ miasma:
   sources:
     - CAVE_SPIDER_DAMAGE
     - SILVERFISH_DAMAGE
-  base-chance-percent: 4.0
+    - SPIDER_DAMAGE
+  base-chance-percent: 3.0
   duration-seconds: 120
   effects:
     SLOWNESS: 0

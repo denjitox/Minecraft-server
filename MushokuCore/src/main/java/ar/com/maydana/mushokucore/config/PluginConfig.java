@@ -58,6 +58,26 @@ public interface PluginConfig {
     /** {@code modules.bedrock-bridge} — detección/desarrollo Java+Bedrock. */
     boolean moduloBedrockBridge();
 
+    // ---- market / npcs (economía por diamantes y vecinos) ----
+
+    /** {@code modules.market} — mercado de administración con diamantes físicos. */
+    boolean moduloMarket();
+
+    /** {@code modules.npcs} — vecinos con skin, diálogo, regalos y trueques. */
+    boolean moduloNpcs();
+
+    /** {@code market.max-purchases-per-minute} — techo anti-abuso en memoria. */
+    int mercadoMaxComprasPorMinuto();
+
+    /** {@code npcs.reputation-high} — desde qué valor el diálogo es "alta". */
+    int npcsReputacionAlta();
+
+    /** {@code npcs.reputation-low} — hasta qué valor el diálogo es "baja". */
+    int npcsReputacionBaja();
+
+    /** {@code npcs.routine-seconds} — período de la rutina de mirada; 0 la desactiva. */
+    int npcsRutinaSegundos();
+
     // ---- world (spec §9 L408-414) ----
 
     /** {@code world.name} — DECISIÓN DEL USUARIO: {@code mushoku_world}. */

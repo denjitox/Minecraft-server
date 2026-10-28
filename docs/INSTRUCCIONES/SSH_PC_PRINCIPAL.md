@@ -49,24 +49,13 @@ if (-not (Test-Path $ak) -or -not (Select-String -Path $ak -SimpleMatch $clave -
 }
 icacls.exe $ak /inheritance:r /grant:r "${env:USERNAME}:(F)" /grant:r "*S-1-5-18:(F)" | Out-Null
 
-# 5b. Cuenta administradora: sshd lee OTRO archivo
-$gAdmins = Get-LocalGroup -SID 'S-1-5-32-544' -ErrorAction SilentlyContinue
-$esAdmin = $false
-if ($gAdmins) {
-    $miembros = Get-LocalGroupMember -Group $gAdmins -ErrorAction SilentlyContinue
-    $yo = "$env:COMPUTERNAME\$env:USERNAME"
-    $esAdmin = [bool]($miembros | Where-Object { $_.Name -ieq $yo -or $_.Name -ieq $env:USERNAME })
+# 5b. Cuenta administradora: sshd lee OTRO archivo e IGNORA el del perfil.
+# Se escribe siempre: si la cuenta no es admin, el archivo existe y nadie lo lee.
+$admAk = Join-Path $env:ProgramData 'ssh\administrators_authorized_keys'
+if (-not (Test-Path $admAk) -or -not (Select-String -Path $admAk -SimpleMatch $clave -Quiet)) {
+    Add-Content -Path $admAk -Value $clave -Encoding ascii
 }
-if ($esAdmin) {
-    $admAk = Join-Path $env:ProgramData 'ssh\administrators_authorized_keys'
-    if (-not (Test-Path $admAk) -or -not (Select-String -Path $admAk -SimpleMatch $clave -Quiet)) {
-        Add-Content -Path $admAk -Value $clave -Encoding ascii
-    }
-    icacls.exe $admAk /inheritance:r /grant:r "*S-1-5-32-544:(F)" /grant:r "*S-1-5-18:(F)" | Out-Null
-    Write-Output "clave agregada a administrators_authorized_keys"
-} else {
-    Write-Output "cuenta no administradora: alcanza con authorized_keys del perfil"
-}
+icacls.exe $admAk /inheritance:r /grant:r "*S-1-5-32-544:(F)" /grant:r "*S-1-5-18:(F)" | Out-Null
 
 # --- 6. Reiniciar sshd para tomar el shell por defecto ---
 Restart-Service sshd

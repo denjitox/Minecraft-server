@@ -27,6 +27,13 @@ final class PluginConfigImpl implements PluginConfig {
     private final boolean modRelics;
     private final boolean modDimensions;
     private final boolean modBedrock;
+    // market / npcs
+    private final boolean modMarket;
+    private final boolean modNpcs;
+    private final int mercadoMaxComprasMinuto;
+    private final int npcsReputacionAlta;
+    private final int npcsReputacionBaja;
+    private final int npcsRutinaSegundos;
     private final String mundoNombre;
     private final int bordeDiametro;
     private final int centroX;
@@ -92,6 +99,13 @@ final class PluginConfigImpl implements PluginConfig {
         this.modRelics = yaml.getBoolean("modules.relics", false) && !forzarApagado;
         this.modDimensions = yaml.getBoolean("modules.dimensions", false) && !forzarApagado;
         this.modBedrock = yaml.getBoolean("modules.bedrock-bridge", false) && !forzarApagado;
+
+        this.modMarket = yaml.getBoolean("modules.market", true) && !forzarApagado;
+        this.modNpcs = yaml.getBoolean("modules.npcs", true) && !forzarApagado;
+        this.mercadoMaxComprasMinuto = yaml.getInt("market.max-purchases-per-minute", 10);
+        this.npcsReputacionAlta = yaml.getInt("npcs.reputation-high", 10);
+        this.npcsReputacionBaja = yaml.getInt("npcs.reputation-low", -5);
+        this.npcsRutinaSegundos = yaml.getInt("npcs.routine-seconds", 20);
 
         this.mundoNombre = yaml.getString("world.name", "mushoku_world");
         this.bordeDiametro = yaml.getInt("world.border-diameter", 21800);
@@ -262,6 +276,12 @@ final class PluginConfigImpl implements PluginConfig {
     @Override public boolean moduloRelics() { return modRelics; }
     @Override public boolean moduloDimensions() { return modDimensions; }
     @Override public boolean moduloBedrockBridge() { return modBedrock; }
+    @Override public boolean moduloMarket() { return modMarket; }
+    @Override public boolean moduloNpcs() { return modNpcs; }
+    @Override public int mercadoMaxComprasPorMinuto() { return mercadoMaxComprasMinuto; }
+    @Override public int npcsReputacionAlta() { return npcsReputacionAlta; }
+    @Override public int npcsReputacionBaja() { return npcsReputacionBaja; }
+    @Override public int npcsRutinaSegundos() { return npcsRutinaSegundos; }
     @Override public String mundoNombre() { return mundoNombre; }
     @Override public int bordeDiametro() { return bordeDiametro; }
     @Override public int centroX() { return centroX; }

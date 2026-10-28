@@ -2,6 +2,7 @@ package ar.com.maydana.mushokucore.module.ranks;
 
 import ar.com.maydana.mushokucore.bootstrap.PluginContext;
 import ar.com.maydana.mushokucore.database.repository.BossDamageRepository;
+import ar.com.maydana.mushokucore.database.repository.PlayerRepository;
 import ar.com.maydana.mushokucore.database.repository.PowerRepository;
 import ar.com.maydana.mushokucore.database.repository.PvpRepository;
 import ar.com.maydana.mushokucore.model.DueñoPuesto;
@@ -94,6 +95,7 @@ public final class PotenciasService implements IPotenciasService {
     private final PvpRepository pvp;
     private final ContributionTracker tracker;
     private final LuckPermsOutbox outbox;
+    private final PlayerRepository jugadores;
 
     private final Object candado = new Object();
     private final Map<Integer, Asiento> asientos = new ConcurrentHashMap<>();
@@ -107,13 +109,15 @@ public final class PotenciasService implements IPotenciasService {
     private volatile boolean cacheLista;
 
     public PotenciasService(PluginContext ctx, PowerRepository powers, BossDamageRepository bossDamage,
-                            PvpRepository pvp, ContributionTracker tracker, LuckPermsOutbox outbox) {
+                            PvpRepository pvp, ContributionTracker tracker, LuckPermsOutbox outbox,
+                            PlayerRepository jugadores) {
         this.ctx = ctx;
         this.powers = powers;
         this.bossDamage = bossDamage;
         this.pvp = pvp;
         this.tracker = tracker;
         this.outbox = outbox;
+        this.jugadores = jugadores;
     }
 
     /** Lo llama el módulo con {@code BossBufferFlushTask::flushAhora} (evita el ciclo de dependencias). */
@@ -156,6 +160,34 @@ public final class PotenciasService implements IPotenciasService {
         return cacheLista;
     }
 
+    /**
+     * Precarga los nombres persistidos en {@code players}. La resolución async de
+     * {@link #nombreDe} solo puede leer la cache en memoria, así que sin esto el primer puesto
+     * asignado desde un hilo async (baja PvP, reconciliación) se guarda con {@code owner_name}
+     * en null y {@code /potencias} cae al UUID.
+     */
+    public void cargarNombres() {
+        enHiloAsync(() -> jugadores.nombresConocidos().whenComplete((persistidos, fallo) -> {
+            if (fallo != null) {
+                log().warning("Potencias: no se pudieron precargar los nombres de players; "
+                        + "la resolucion async usara solo la cache en memoria.");
+                return;
+            }
+            persistidos.forEach(nombres::putIfAbsent);
+            log().info("Potencias: nombres precargados desde players (" + persistidos.size() + " filas).");
+        }));
+    }
+
+    /**
+     * Cachea el nombre de un jugador visto en el hilo principal (join, arranque o comando).
+     * No pisa un nombre ya cacheado con uno vacío.
+     */
+    public void recordarNombre(UUID jugador, String nombre) {
+        if (jugador != null && nombre != null && !nombre.isBlank()) {
+            nombres.put(jugador, nombre);
+        }
+    }
+
     private void aplicarFilas(List<PowerRepository.Fila> filas) {
         synchronized (candado) {
             asientos.clear();
@@ -164,6 +196,7 @@ public final class PotenciasService implements IPotenciasService {
                         fila.titulo() == null || fila.titulo().isBlank()
                                 ? tituloDe(fila.posicion()) : fila.titulo(),
                         fila.duenio(), fila.duenioNombre(), fila.revision()));
+                recordarNombre(fila.duenio(), fila.duenioNombre());
             }
         }
     }
@@ -637,6 +670,8 @@ public final class PotenciasService implements IPotenciasService {
     /**
      * Nombre de presentación. Bukkit solo se consulta en el hilo principal, y ahí queda
      * cacheado: la muerte de jefe y el recálculo del puesto 5 asignan desde un hilo async.
+     * Fuera del hilo principal solo se lee la cache; la llenan el join
+     * ({@code PotenciasJoinListener}), el arranque y {@link #cargarNombres()}.
      */
     private String nombreDe(UUID jugador) {
         if (jugador == null) {
@@ -647,9 +682,7 @@ public final class PotenciasService implements IPotenciasService {
         }
         Player enLinea = Bukkit.getPlayer(jugador);
         String nombre = enLinea != null ? enLinea.getName() : Bukkit.getOfflinePlayer(jugador).getName();
-        if (nombre != null) {
-            nombres.put(jugador, nombre);
-        }
+        recordarNombre(jugador, nombre);
         return nombre;
     }
 

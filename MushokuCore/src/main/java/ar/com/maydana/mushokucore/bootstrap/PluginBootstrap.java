@@ -5,6 +5,8 @@ import ar.com.maydana.mushokucore.database.repository.AuditRepository;
 import ar.com.maydana.mushokucore.module.commands.CommandsModule;
 import ar.com.maydana.mushokucore.module.diseases.DiseasesModule;
 import ar.com.maydana.mushokucore.module.factions.FactionsModule;
+import ar.com.maydana.mushokucore.module.market.MarketModule;
+import ar.com.maydana.mushokucore.module.npcs.NpcsModule;
 import ar.com.maydana.mushokucore.module.ranks.PotenciasModule;
 import ar.com.maydana.mushokucore.module.regionaldifficulty.RegionalDifficultyModule;
 import ar.com.maydana.mushokucore.util.InfraCore;
@@ -69,6 +71,8 @@ public final class PluginBootstrap {
         registro.registrar(new DiseasesModule());            // dueño: agente C
         registro.registrar(new FactionsModule());
         registro.registrar(new RegionalDifficultyModule());  // escalado regional de dificultad
+        registro.registrar(new MarketModule());              // economia por diamantes
+        registro.registrar(new NpcsModule());                // vecinos con skin y dialogo
         registro.registrar(new CommandsModule());            // dueño: agente D — último (§6.3)
         List<String> activos = registro.habilitarTodos(contexto);
 

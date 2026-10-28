@@ -46,6 +46,18 @@ commands:
     usage: /visionapostol
     permission: mt.alianza.apostoles
     permission-message: "&cNo tenes permiso."
+  mercado:
+    description: Mercado de administracion con diamantes fisicos
+    usage: /mercado [categoria|lista|comprar <item>|recargar]
+    aliases: [market]
+    permission: mushoku.mercado.use
+    permission-message: "&cNo tenes permiso."
+  vecino:
+    description: Vecinos de la fortaleza, dialogo y trueques
+    usage: /vecino <lista|info|hablar|trueques|reputacion|colocar|quitar|recargar> [id]
+    aliases: [npc]
+    permission: mushoku.vecino.use
+    permission-message: "&cNo tenes permiso."
 
 permissions:
   mushoku.use:
@@ -69,6 +81,19 @@ permissions:
   # DECISION D12 (2026-10-18): /mushoku import skript es invocable EN JUEGO por un jugador con
   # este permiso (y tambien por consola). plan §5.1, fuera del spec §17.
   mushoku.admin.import:
+    default: op
+  # Mercado de administracion y vecinos.
+  mushoku.mercado.use:
+    description: Abrir el mercado y comprar con diamantes
+    default: true
+  mushoku.admin.mercado:
+    description: Recargar market.yml
+    default: op
+  mushoku.vecino.use:
+    description: Hablar con los vecinos y usar sus trueques
+    default: true
+  mushoku.admin.vecinos:
+    description: Colocar, quitar y recargar vecinos
     default: op
   # Permiso de la alianza de los Apostoles; mismo nodo que usa el Skript actual (mt.alianza.*).
   mt.alianza.apostoles:

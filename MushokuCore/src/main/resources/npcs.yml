@@ -1,0 +1,327 @@
+# npcs.yml — definiciones de los vecinos.
+#
+# Las skins NO van aca: el script docs/perugius/skins/generar_skins.ps1 descarga los
+# PNG, calcula el base64 y escribe npcs-skins.yml junto a este archivo. Si una entrada
+# tiene skin.value en este YAML, ese valor gana sobre npcs-skins.yml.
+#
+# Estructura por NPC:
+#   nombre:    nombre visible sobre la entidad
+#   titulo:    descripcion de la entidad (Mannequin); en el aldeano de respaldo no se usa
+#   skin:
+#     value:     base64 de la propiedad "textures" (opcional)
+#     signature: firma de la propiedad (opcional, solo si se subio a Mineskin)
+#   dialogo:
+#     baja / neutral / alta: listas de lineas segun la reputacion del jugador
+#   regalos:   material + cantidad que se consume, reputacion que suma y cooldown
+#   trueques:  lo que entrega a cambio de un costo en materiales
+#
+# Las coordenadas NO van aca. Se guardan en npcs-locations.yml al usar
+# /vecino colocar <id>, para poder mover el catalogo sin tocar el mundo.
+
+npcs:
+
+  perugius:
+    nombre: "&6&lPerugius Dola"
+    titulo: "&7Señor de la Fortaleza Celestial"
+    dialogo:
+      baja:
+        - "&7Aún no has demostrado nada. Retírate."
+      neutral:
+        - "&7La fortaleza no se abre para cualquiera."
+        - "&7Habla con los espíritus. Ellos juzgan antes que yo."
+      alta:
+        - "&6Bienvenido otra vez. Los espíritus hablan bien de ti."
+    regalos:
+      - id: lingote-oro
+        material: GOLD_INGOT
+        cantidad: 4
+        reputacion: 2
+        cooldown-horas: 24
+    trueques:
+      - id: manzana-dorada
+        entrega: GOLDEN_APPLE
+        entrega-cantidad: 1
+        costo: GOLD_INGOT
+        costo-cantidad: 8
+
+  orsted:
+    nombre: "&8&lOrsted"
+    titulo: "&7Dios Dragón"
+    dialogo:
+      baja:
+        - "&7No tengo nada que decirte."
+      neutral:
+        - "&7El camino largo es el único que conozco."
+        - "&7Si vienes a pedir algo, sé breve."
+      alta:
+        - "&8Pocos llegan hasta acá. Lo tendré en cuenta."
+    regalos:
+      - id: perla-ender
+        material: ENDER_PEARL
+        cantidad: 2
+        reputacion: 3
+        cooldown-horas: 24
+    trueques:
+      - id: ender-eye
+        entrega: ENDER_EYE
+        entrega-cantidad: 1
+        costo: ENDER_PEARL
+        costo-cantidad: 2
+
+  recepcion:
+    nombre: "&fRecepción"
+    titulo: "&7Mayordomo de la fortaleza"
+    dialogo:
+      baja:
+        - "&7El registro no tiene tu nombre. No puedo dejarte pasar."
+      neutral:
+        - "&7Anoto tu visita. Es protocolo."
+        - "&7Los invitados esperan en el recibidor."
+      alta:
+        - "&7Su visita está anotada, como siempre."
+    regalos:
+      - id: papel
+        material: PAPER
+        cantidad: 16
+        reputacion: 2
+        cooldown-horas: 12
+    trueques:
+      - id: libro
+        entrega: BOOK
+        entrega-cantidad: 1
+        costo: PAPER
+        costo-cantidad: 8
+      - id: pan
+        entrega: BREAD
+        entrega-cantidad: 8
+        costo: WHEAT
+        costo-cantidad: 16
+
+  dragonknight:
+    nombre: "&bCaballero Dragón"
+    titulo: "&7Espíritu guardián"
+    dialogo:
+      baja:
+        - "&7No te acerques a la puerta."
+      neutral:
+        - "&7La guardia no descansa."
+        - "&7Si buscas pelea, la encontrarás."
+      alta:
+        - "&bPuedes pasar. Yo respondo."
+    regalos:
+      - id: hierro
+        material: IRON_INGOT
+        cantidad: 8
+        reputacion: 2
+        cooldown-horas: 24
+    trueques:
+      - id: escudo
+        entrega: SHIELD
+        entrega-cantidad: 1
+        costo: IRON_INGOT
+        costo-cantidad: 4
+
+  spiritknight:
+    nombre: "&8Espíritu de Grieta"
+    titulo: "&7Espíritu guardián"
+    dialogo:
+      baja:
+        - "&7Tu presencia molesta."
+      neutral:
+        - "&7La piedra recuerda cada paso."
+      alta:
+        - "&8La grieta te deja pasar."
+    regalos:
+      - id: carbon
+        material: COAL
+        cantidad: 16
+        reputacion: 1
+        cooldown-horas: 12
+    trueques:
+      - id: antorcha
+        entrega: TORCH
+        entrega-cantidad: 16
+        costo: COAL
+        costo-cantidad: 2
+
+  knight-rojo:
+    nombre: "&cCaballero Rojo"
+    titulo: "&7Espíritu guardián"
+    dialogo:
+      baja:
+        - "&cAléjate."
+      neutral:
+        - "&cEl rojo avisa. No hace falta repetirlo."
+      alta:
+        - "&cEstás en la lista corta."
+    regalos:
+      - id: piedra
+        material: STONE
+        cantidad: 32
+        reputacion: 1
+        cooldown-horas: 12
+    trueques:
+      - id: piedra-lisa
+        entrega: SMOOTH_STONE
+        entrega-cantidad: 16
+        costo: STONE
+        costo-cantidad: 16
+
+  sylphiette:
+    nombre: "&a&lSylphiette"
+    titulo: "&7Maga de la corte"
+    dialogo:
+      baja:
+        - "&7No te conozco. Perdón."
+      neutral:
+        - "&7Si necesitas algo, puedo preguntar."
+        - "&7El jardín está abierto, pero no lo pises."
+      alta:
+        - "&aQué bueno verte. Pasa."
+    regalos:
+      - id: flores
+        material: POPPY
+        cantidad: 8
+        reputacion: 2
+        cooldown-horas: 12
+    trueques:
+      - id: galletas
+        entrega: COOKIE
+        entrega-cantidad: 8
+        costo: WHEAT
+        costo-cantidad: 8
+      - id: pocion-curacion
+        entrega: HONEY_BOTTLE
+        entrega-cantidad: 2
+        costo: HONEYCOMB
+        costo-cantidad: 4
+
+  guerrero:
+    nombre: "&eGuerrero"
+    titulo: "&7Sirviente de la fortaleza"
+    dialogo:
+      baja:
+        - "&7No tengo órdenes para ti."
+      neutral:
+        - "&7El patio se barre todos los días."
+        - "&7Si vas al norte, lleva agua."
+      alta:
+        - "&eSi necesitas una mano, avisá."
+    regalos:
+      - id: carne
+        material: COOKED_BEEF
+        cantidad: 8
+        reputacion: 2
+        cooldown-horas: 12
+    trueques:
+      - id: hacha
+        entrega: IRON_AXE
+        entrega-cantidad: 1
+        costo: IRON_INGOT
+        costo-cantidad: 3
+
+  rudeus:
+    nombre: "&f&lRudeus"
+    titulo: "&7Visitante"
+    dialogo:
+      baja:
+        - "&7Prefiero no hablar."
+      neutral:
+        - "&7Estaba pensando en otra cosa."
+        - "&7Si encontrás algo raro, contámelo."
+      alta:
+        - "&fNos conocemos lo suficiente."
+    regalos:
+      - id: libro
+        material: BOOK
+        cantidad: 4
+        reputacion: 2
+        cooldown-horas: 24
+    trueques:
+      - id: papel
+        entrega: PAPER
+        entrega-cantidad: 8
+        costo: SUGAR_CANE
+        costo-cantidad: 8
+
+  roxy:
+    nombre: "&9&lRoxy"
+    titulo: "&7Maestra de magia"
+    dialogo:
+      baja:
+        - "&7La lección terminó."
+      neutral:
+        - "&7La magia exige práctica, no prisa."
+        - "&7¿Venís a estudiar o a perder el tiempo?"
+      alta:
+        - "&9Buen trabajo. Seguí así."
+    regalos:
+      - id: lapislazuli
+        material: LAPIS_LAZULI
+        cantidad: 8
+        reputacion: 2
+        cooldown-horas: 24
+    trueques:
+      - id: libro-y-pluma
+        entrega: WRITABLE_BOOK
+        entrega-cantidad: 1
+        costo: BOOK
+        costo-cantidad: 1
+      - id: perla
+        entrega: ENDER_PEARL
+        entrega-cantidad: 1
+        costo: LAPIS_LAZULI
+        costo-cantidad: 8
+
+  eris:
+    nombre: "&c&lEris"
+    titulo: "&7Guerrera"
+    dialogo:
+      baja:
+        - "&c¿Qué mirás?"
+      neutral:
+        - "&cEntrenar es más útil que hablar."
+        - "&cSi vas a quedarte, aguantá el ritmo."
+      alta:
+        - "&cBien. Vos sí servís."
+    regalos:
+      - id: hierro
+        material: IRON_INGOT
+        cantidad: 4
+        reputacion: 2
+        cooldown-horas: 24
+    trueques:
+      - id: espada
+        entrega: IRON_SWORD
+        entrega-cantidad: 1
+        costo: IRON_INGOT
+        costo-cantidad: 2
+
+  mago-oscuro:
+    nombre: "&5&lEl Encapuchado"
+    titulo: "&7Figura sin nombre"
+    dialogo:
+      baja:
+        - "&5No te acerques más."
+      neutral:
+        - "&5Todo tiene un precio. Casi todo."
+        - "&5No recuerdo haberte visto antes."
+      alta:
+        - "&5Ya nos conocemos. Eso basta."
+    regalos:
+      - id: polvora
+        material: GUNPOWDER
+        cantidad: 8
+        reputacion: 1
+        cooldown-horas: 12
+    trueques:
+      - id: ender-pearl
+        entrega: ENDER_PEARL
+        entrega-cantidad: 1
+        costo: GUNPOWDER
+        costo-cantidad: 8
+      - id: polvo-blaze
+        entrega: BLAZE_POWDER
+        entrega-cantidad: 4
+        costo: GUNPOWDER
+        costo-cantidad: 4

@@ -1,0 +1,209 @@
+# market.yml — catalogo del mercado de administracion.
+#
+# La moneda son diamantes fisicos del inventario del jugador. No hay Vault, ni saldo
+# virtual, ni venta al mercado en esta version: el mercado solo vende.
+#
+# Estructura:
+#   titulo: nombre de la pantalla principal
+#   categories.<id>:
+#     title:         nombre visible en el icono
+#     icon:          material del icono en el menu principal
+#     slot:          0..26, posicion en el menu principal
+#     items.<id>:
+#       material:      material de Bukkit, en MAYUSCULAS o minusculas
+#       amount:        cantidad que recibe el jugador
+#       price-diamonds: diamantes que cuesta la oferta completa
+#       name:          opcional, nombre visible
+#       lore:          opcional, lista de lineas
+#
+# Reglas de carga:
+#   - amount y price-diamonds tienen que ser mayores que 0; si no, la oferta se omite
+#     y queda un warning en el log.
+#   - amount no puede superar el stack del material (1 en herramientas, escudo,
+#     estofado y demas items no apilables): si lo supera, la oferta se omite. Para
+#     entregar mas de un stack, cargar varias ofertas.
+#   - una categoria muestra hasta 45 ofertas (los slots 45 a 53 son relleno y botones).
+#   - el precio es por la oferta completa, no por unidad.
+#   - /mercado recargar relee este archivo sin reiniciar.
+
+titulo: "&8&lMercado de Mushoku"
+
+categories:
+
+  bloques:
+    title: "&eBloques"
+    icon: STONE_BRICKS
+    slot: 10
+    items:
+      ladrillos-piedra:
+        material: STONE_BRICKS
+        amount: 64
+        price-diamonds: 2
+        name: "&fLadrillos de piedra"
+      piedra-lisa:
+        material: SMOOTH_STONE
+        amount: 64
+        price-diamonds: 2
+      troncos-roble:
+        material: OAK_LOG
+        amount: 64
+        price-diamonds: 1
+        name: "&fTroncos de roble"
+        lore:
+          - "&7Combustible y construcción."
+      vidrio:
+        material: GLASS
+        amount: 64
+        price-diamonds: 3
+      piedra-del-abismo:
+        material: DEEPSLATE
+        amount: 64
+        price-diamonds: 2
+      obsidiana:
+        material: OBSIDIAN
+        amount: 8
+        price-diamonds: 2
+        lore:
+          - "&7Para portales y granjas."
+
+  comida:
+    title: "&aComida"
+    icon: BREAD
+    slot: 11
+    items:
+      pan:
+        material: BREAD
+        amount: 16
+        price-diamonds: 1
+      carne-cocida:
+        material: COOKED_BEEF
+        amount: 16
+        price-diamonds: 2
+        name: "&fBife cocido"
+      zanahoria-dorada:
+        material: GOLDEN_CARROT
+        amount: 8
+        price-diamonds: 2
+        name: "&fZanahoria dorada"
+      heno:
+        material: HAY_BLOCK
+        amount: 16
+        price-diamonds: 1
+        name: "&fFardo de heno"
+        lore:
+          - "&7Comida de animales."
+      estofado:
+        material: MUSHROOM_STEW
+        amount: 1
+        price-diamonds: 1
+        name: "&fEstofado de hongos"
+
+  herramientas:
+    title: "&bHerramientas"
+    icon: IRON_PICKAXE
+    slot: 12
+    items:
+      pico-hierro:
+        material: IRON_PICKAXE
+        amount: 1
+        price-diamonds: 3
+        name: "&fPico de hierro"
+      hacha-hierro:
+        material: IRON_AXE
+        amount: 1
+        price-diamonds: 3
+        name: "&fHacha de hierro"
+      pala-hierro:
+        material: IRON_SHOVEL
+        amount: 1
+        price-diamonds: 2
+        name: "&fPala de hierro"
+      tijeras:
+        material: SHEARS
+        amount: 1
+        price-diamonds: 2
+      balde:
+        material: BUCKET
+        amount: 1
+        price-diamonds: 2
+      pedernal-acero:
+        material: FLINT_AND_STEEL
+        amount: 1
+        price-diamonds: 2
+        name: "&fPedernal y acero"
+      escudo:
+        material: SHIELD
+        amount: 1
+        price-diamonds: 2
+
+  alquimia:
+    title: "&dAlquimia"
+    icon: BREWING_STAND
+    slot: 13
+    items:
+      verruga-nether:
+        material: NETHER_WART
+        amount: 8
+        price-diamonds: 1
+        name: "&fVerruga del Nether"
+      polvo-blaze:
+        material: BLAZE_POWDER
+        amount: 8
+        price-diamonds: 2
+        name: "&fPolvo de blaze"
+      polvora:
+        material: GUNPOWDER
+        amount: 8
+        price-diamonds: 1
+        name: "&fPólvora"
+      polvo-brillo:
+        material: GLOWSTONE_DUST
+        amount: 16
+        price-diamonds: 2
+        name: "&fPolvo de glowstone"
+      azucar:
+        material: SUGAR
+        amount: 32
+        price-diamonds: 1
+        name: "&fAzúcar"
+      crema-magma:
+        material: MAGMA_CREAM
+        amount: 4
+        price-diamonds: 2
+        name: "&fCrema de magma"
+
+  especial:
+    title: "&6Especiales"
+    icon: ENDER_PEARL
+    slot: 14
+    items:
+      perla-ender:
+        material: ENDER_PEARL
+        amount: 4
+        price-diamonds: 3
+        name: "&fPerla de ender"
+      vara-blaze:
+        material: BLAZE_ROD
+        amount: 4
+        price-diamonds: 3
+        name: "&fVara de blaze"
+      bola-slime:
+        material: SLIME_BALL
+        amount: 16
+        price-diamonds: 2
+        name: "&fBola de slime"
+      fragmento-amatista:
+        material: AMETHYST_SHARD
+        amount: 8
+        price-diamonds: 2
+        name: "&fFragmento de amatista"
+      etiqueta:
+        material: NAME_TAG
+        amount: 1
+        price-diamonds: 2
+        name: "&fEtiqueta"
+      montura:
+        material: SADDLE
+        amount: 1
+        price-diamonds: 3
+        name: "&fMontura"
