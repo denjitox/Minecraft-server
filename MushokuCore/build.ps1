@@ -90,7 +90,24 @@ function Invoke-Nativo {
     }
 
     foreach ($linea in $salida) { Write-Verbose $linea }
-    return $codigo
+    # Devuelve tambien la salida: si el comando falla, el llamador la muestra en el
+    # throw. Antes solo quedaba en -Verbose y el error real se perdia.
+    return [pscustomobject]@{
+        Codigo = $codigo
+        Salida = @($salida)
+    }
+}
+
+function Mostrar-Fallo {
+    param(
+        [Parameter(Mandatory)][string]$Herramienta,
+        [Parameter(Mandatory)]$Resultado
+    )
+
+    $lineas = @($Resultado.Salida | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    $corte = if ($lineas.Count -gt 40) { $lineas[($lineas.Count - 40)..($lineas.Count - 1)] } else { $lineas }
+    $detalle = ($corte -join [Environment]::NewLine)
+    throw "$Herramienta fallo con exit code $($Resultado.Codigo). Salida:`n$detalle"
 }
 
 $LibRoot = Resolve-LibRoot -Explicit $LibRoot
@@ -102,6 +119,9 @@ $cpJars = @(
     (Resolve-Dependencia -Directorio (Join-Path $LibRoot 'net\kyori\adventure-api') -Patron 'adventure-api-*.jar' -Nombre 'adventure-api')
     (Resolve-Dependencia -Directorio (Join-Path $LibRoot 'net\kyori\adventure-key') -Patron 'adventure-key-*.jar' -Nombre 'adventure-key')
     (Resolve-Dependencia -Directorio (Join-Path $LibRoot 'net\kyori\option') -Patron 'option-*.jar' -Nombre 'adventure option')
+    # LegacyComponentSerializer vive en este artefacto aparte, no en adventure-api:
+    # sin el, Componentes.java no compila. Paper ya lo trae en runtime.
+    (Resolve-Dependencia -Directorio (Join-Path $LibRoot 'net\kyori\adventure-text-serializer-legacy') -Patron 'adventure-text-serializer-legacy-*.jar' -Nombre 'adventure text serializer legacy')
     (Resolve-Dependencia -Directorio (Join-Path $LibRoot 'net\md-5\bungeecord-chat') -Patron 'bungeecord-chat-*.jar' -Nombre 'bungeecord-chat')
     (Resolve-Dependencia -Directorio (Join-Path $LibRoot 'com\google\guava\guava') -Patron 'guava-*.jar' -Nombre 'guava')
     # paper-api referencia @NotNull: sin esas clases javac no da un error legible,
@@ -138,16 +158,16 @@ try {
 
     Write-Verbose "== javac =="
     $argsJavac = @('-encoding', 'UTF-8', '--release', '25', '-classpath', $classpath, '-d', $outDir) + $sources
-    $codigo = Invoke-Nativo -Exe $javac -Arguments $argsJavac
-    if ($codigo -ne 0) { throw "javac fallo con exit code $codigo" }
+    $resultado = Invoke-Nativo -Exe $javac -Arguments $argsJavac
+    if ($resultado.Codigo -ne 0) { Mostrar-Fallo -Herramienta 'javac' -Resultado $resultado }
 
     Write-Verbose "== recursos =="
     # Copia plugin.yml, config.yml, messages.yml y migrations\ preservando subdirectorios.
     Copy-Item -Path (Join-Path $resDir '*') -Destination $outDir -Recurse -Force
 
     Write-Verbose "== jar =="
-    $codigo = Invoke-Nativo -Exe $jar -Arguments @('--create', '--file', $outJar, '-C', $outDir, '.')
-    if ($codigo -ne 0) { throw "jar fallo con exit code $codigo" }
+    $resultado = Invoke-Nativo -Exe $jar -Arguments @('--create', '--file', $outJar, '-C', $outDir, '.')
+    if ($resultado.Codigo -ne 0) { Mostrar-Fallo -Herramienta 'jar' -Resultado $resultado }
 
     $ok = $true
 
