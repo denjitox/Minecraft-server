@@ -23,7 +23,7 @@ Rama actual: (sin git verificado desde este entorno)
 - [ ] **Fases Hitogami**: Añadir fases, adds, evoker_fangs, teletransporte (actualmente solo invocación + derrota).
 - [ ] **Reliquias config**: Crear config lista para pegar en servidor live basado en `docs/INSTRUCCIONES/MT_Estadisticas_Tecnicas_Reliquias.md`. Implementar las 7 reliquias (suppression_ring, sara_earring, migurd_pendant, paul_sword, superd_spear, aqua_heartia, magic_armor_mk1) con sus valores PvE/PvP, cooldowns, límites globales, ranuras virtuales.
 - [ ] **Nether personalizado**: Decidir biomas/ambiente (datapack) o bloqueo por progreso (módulo `dimensions`).
-- [ ] **Aldeanos con skins**: implementado en el módulo `npcs` de MushokuCore (Mannequin + `npcs.yml`), sin compilar ni probar. Ver `docs/MushokuCore/INSTRUCTIVO_MERCADO_Y_VECINOS_2026-10-27.md`. Citizens + Mineskin queda como alternativa si Bedrock no renderiza la entidad.
+- [ ] **Aldeanos con skins**: implementado en el módulo `npcs` de MushokuCore con **Mannequin vanilla**. Compila y está desplegado (jar 328.312 B, 2026-10-27 23:55); **falta el reinicio y la prueba in-game en Java y Bedrock**. Las 12 skins se resolvieron por el sessionserver de Mojang y están en `npcs-skins.yml`. Ver `docs/MushokuCore/INSTRUCTIVO_MERCADO_Y_VECINOS_2026-10-27.md`. Citizens queda como alternativa solo si Bedrock no renderiza la entidad.
 - [ ] **Regional difficulty runtime test**: Probar con spawns reales.
 
 ## Compilación (leer antes de buildear)
@@ -38,10 +38,11 @@ Rama actual: (sin git verificado desde este entorno)
 
 **Pendiente en la PC principal:**
 
-- [ ] Instalar JDK 25 (Temurin) y verificar `javac -version` / `jar --version`. Esta notebook no tiene Java.
-- [ ] Confirmar que existe `C:\Dev\OPENCLAUDIO\minecraft_server\servidor\libraries` (o pasar `-LibRoot`).
-- [ ] Correr `cd MushokuCore; .\build.ps1 -Verbose` y conservar la salida. **La compilación nunca se ejecutó desde acá**: no hay JDK ni jars en esta máquina.
-- [ ] Copiar `build\libs\MushokuCore-1.0.0.jar` a `servidor\plugins\` y reiniciar el servidor (Paper no re extrae `messages.yml` si el archivo ya existe en `plugins\MushokuCore\`).
+- [x] **JDK 25 presente**: `build.ps1` compiló y armó el jar dos veces el 2026-10-27 (última: 328.312 B, 148 clases). No se volvió a verificar `javac -version` en esta sesión.
+- [x] **Dependencias resueltas**: el build encontró `paper-api` y el resto sin pasar `-LibRoot`.
+- [x] **Build ejecutado** desde un proceso PowerShell hijo, con la salida conservada.
+- [x] **Jar desplegado** en `plugins/` del hosting, verificado por descarga (SHA256 idéntico).
+- [ ] Al cambiar `messages.yml`: copiarlo a mano a `plugins/MushokuCore/`. Paper no re-extrae recursos del jar si el archivo ya existe.
 
 ## Títulos en TAB y `/potencias` (sin compilar)
 
@@ -53,15 +54,20 @@ Cambios del 2026-10-25, **sin compilar ni probar en runtime**:
 - [ ] **Config necesaria**: TAB debe usar los placeholders de LuckPerms (o formato por grupo), y los grupos `potencia1..7` necesitan prefijo y **peso mayor que `default`** para que LuckPerms los tome como primario. Sin eso el refresco corre pero no hay nada distinto que pintar.
 - [ ] El formato por grupo (`groups.yml`) sigue atado a `permission-refresh-interval` de TAB (1000 ms); la API pública no permite adelantarlo.
 
-## Mercado y vecinos (compila, sin probar en servidor)
+## Mercado y vecinos (desplegado; falta reinicio y pruebas in-game)
 
-Cambios del 2026-10-27. Código completo en `MushokuCore`: módulos `market` y `npcs`, migración `V003`, repositorios, `market.yml`, `npcs.yml`, `messages.yml`. **Los 113 fuentes compilan** con `javac 25` contra `paper-api 1.21.9` (148 clases, jar de prueba de 320.483 B) y las tres migraciones se aplican sobre SQLite. **Nunca corrió con el plugin cargado.** Instructivo paso a paso: `docs/MushokuCore/INSTRUCTIVO_MERCADO_Y_VECINOS_2026-10-27.md`.
+Cambios del 2026-10-27. Código completo en `MushokuCore`: módulos `market` y `npcs`, migración `V003`, repositorios, `market.yml`, `npcs.yml`, `npcs-skins.yml`, `messages.yml`. **Compila en la PC principal** con `build.ps1` (148 clases, jar oficial de 328.312 B) y las tres migraciones se aplican sobre SQLite. Instructivo paso a paso: `docs/MushokuCore/INSTRUCTIVO_MERCADO_Y_VECINOS_2026-10-27.md`.
 
-- [ ] Generar el jar oficial con `powershell -NoProfile -ExecutionPolicy Bypass -File .\MushokuCore\build.ps1` desde un proceso hijo (el jar de la notebook fue solo verificación y no se desplegó).
-- [ ] Copiar `messages.yml` y `config.yml` a `plugins\MushokuCore\` antes de reiniciar (Paper no re extrae recursos existentes).
-- [ ] Verificar en el log: `Modulo 'market' habilitado: 5 categoria(s), 30 item(s).` y `Modulo 'npcs' habilitado: 12 definicion(es), ...`.
-- [ ] Probar `/mercado`, `/vecino colocar`, diálogo, regalo, trueques y reputación en Java y en Bedrock.
-- [ ] Publicar los 12 PNG y correr `docs\perugius\skins\generar_skins.ps1 -PublicBaseUrl ...` antes de esperar skins.
+- [x] Generar el jar oficial con `powershell -NoProfile -ExecutionPolicy Bypass -File .\MushokuCore\build.ps1` desde un proceso hijo. Hecho el 2026-10-27 en la PC principal: **320.497 B**, SHA256 `130B2603…351C3B`. El primer intento falló por una dependencia que faltaba en `build.ps1` (`adventure-text-serializer-legacy`); ya está agregada y el script ahora imprime la salida de `javac` cuando falla.
+- [x] Subir jar, `messages.yml` y `config.yml` al hosting y verificar bajándolos (SHA256 idéntico). Backups `.bak-20261027T2258Z` de los tres.
+- [x] **Arranque en producción verificado el 2026-10-27 23:25.** Backup pre-migración `mushoku_20261028T022603Z_pre-migracion.db`; `V003` aplicada; log con `Modulo 'market' habilitado: 5 categoria(s), 30 item(s).` y `Modulo 'npcs' habilitado: 12 definicion(es), 0 ubicado(s).`; cero `SEVERE` de MushokuCore.
+- [x] **Refactor de `NpcEntityFactory` a API tipada** (sin reflexión) y **skins resueltas** por `docs/perugius/skins/resolver_skins_mojang.ps1`: 12/12 (11 firmadas por Mojang, `rudeus` desde el CDN sin firma). Jar nuevo de **328.312 B**, SHA256 `5127B2909F4BAC63…`, con `npcs-skins.yml` adentro; desplegado y verificado por descarga, backup `.bak-20261027T2355Z` (320.497 B).
+- [ ] **Reiniciar el panel** (lo hace el usuario). Paper no cambia plugins en caliente: hasta el reinicio corre el jar anterior y los mannequins no existen todavía.
+- [ ] Después del reinicio, colocar **un** NPC con `/vecino colocar perugius` y mirarlo desde Java y desde Bedrock. Esperado en Java: skin, nombre y línea de título. En Bedrock: skin y nombre, sin la línea de título (`setDescription` está en TODO del traductor de Geyser). [A VERIFICAR con clientes reales]
+- [ ] Probar `/mercado`, diálogo, regalo, trueques y reputación. Los comandos `/vecino hablar|trueques|reputacion` sirven de respaldo si el click sobre la entidad no responde en Bedrock.
+- [ ] Si se quiere cambiar las skins, correr `resolver_skins_mojang.ps1`, copiar `npcs-skins.yml` a `plugins/MushokuCore/` y usar `/vecino recargar` (sin reiniciar).
+- [ ] **Pendiente aparte:** el outbox de LuckPerms sigue devolviendo `false` en producción (`luckperms_outbox` con `attempts=50`, `done=0`). No se investigó la causa.
+
 
 ## Archivos clave
 - `datapacks/mt_core/` - Todo el sistema Hitogami

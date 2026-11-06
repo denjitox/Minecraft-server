@@ -23,7 +23,13 @@
 #   -Salida <archivo>    Donde se escribe el YAML. Default: MushokuCore\src\main\resources\npcs-skins.yml.
 #   -PublicBaseUrl <url> Base publica que termina en "/". Sin esto no se genera skin.
 #   -SoloVerificar       Descarga y verifica, pero no escribe el YAML.
-#   -Force               Vuelve a descargar aunque el hash local ya coincida.
+#   -Force               Vuelve a descargar aunque el hash local ya coincida, y permite
+#                        pisar un npcs-skins.yml que ya tiene skins resueltas.
+#
+# Este script es la alternativa manual (publicar PNG propios). Para las 12 skins del
+# proyecto no hace falta: resolver_skins_mojang.ps1 las saca del sessionserver de Mojang.
+# Si el npcs-skins.yml de destino ya tiene valores, este script se niega a pisarlo salvo
+# que se pase -Force.
 #
 # El script no publica nada por su cuenta. Si un hash no coincide, conserva el error y
 # termina con codigo 1 sin escribir el YAML.
@@ -43,6 +49,22 @@ $ErrorActionPreference = 'Stop'
 $raizRepo = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
 if (-not $Salida) {
     $Salida = Join-Path $raizRepo 'MushokuCore\src\main\resources\npcs-skins.yml'
+}
+
+# Guard: no pisar un npcs-skins.yml que ya tiene skins resueltas. El caso real es el
+# archivo que genera resolver_skins_mojang.ps1 con los blobs de Mojang: correr este
+# script sin -Force lo dejaria con value vacio y los NPC volverian al aldeano.
+# Va antes de las descargas para no gastar red en algo que se va a rechazar.
+if (-not $SoloVerificar -and (Test-Path -LiteralPath $Salida)) {
+    $previo = Get-Content -LiteralPath $Salida -Raw
+    $tieneValores = $previo -and ($previo -match '(?m)^\s*value:\s*"?[A-Za-z0-9+/=]{40,}')
+    if ($tieneValores -and -not $Force) {
+        Write-Host ''
+        Write-Host ("No se escribe {0}: ya tiene skins resueltas." -f $Salida) -ForegroundColor Yellow
+        Write-Host 'Ese archivo lo genera resolver_skins_mojang.ps1 con los blobs de Mojang.'
+        Write-Host 'Si queres reemplazarlo por URLs propias, volve a correr con -Force.'
+        exit 1
+    }
 }
 
 # id en npcs.yml, archivo local, pagina de la skin y hash documentado.

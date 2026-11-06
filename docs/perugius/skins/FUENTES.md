@@ -13,7 +13,8 @@ SHA256 con `Get-FileHash`. Todos son PNG válidos.
 > jugador que la usa**. Por eso la "fuente" es la URL de la skin, y el `<Nombre>`
 > del slug es el apodo, no el autor. No hay licencia declarada en el sitio (skins
 > de comunidad, uso libre de facto): si vas a publicar el servidor, conviene
-> re-subirlas a Mineskin y guardar el blob (ver "Cómo aplicarlas").
+> re-subirlas a Mineskin y guardar el blob, o resolverlas por Mojang como se explica
+> más abajo.
 
 ---
 
@@ -74,19 +75,40 @@ Se usaron para clasificar cada skin. No son las skins crudas.
 
 ---
 
-## Cómo aplicarlas en Citizens
+## Cómo se aplican hoy (Mannequin vanilla, skins por Mojang)
 
-```mcfunction
-/npc create Perugius
-/npc skin --url <URL_pública_del_png>      # la URL debe terminar en .png y ser accesible
-/npc skin Perugius                          # alternativa: copiar la skin de un jugador por nombre
+El módulo `npcs` de MushokuCore crea mannequins con la propiedad `textures` de cada
+skin. No hace falta publicar los PNG ni subirlos a Mineskin: las 12 skins salieron de
+cuentas reales, y el sessionserver de Mojang devuelve la propiedad ya firmada.
+
+```powershell
+# resuelve las 12, verifica el SHA256 y escribe npcs-skins.yml
+powershell -NoProfile -ExecutionPolicy Bypass -File .\docs\perugius\skins\resolver_skins_mojang.ps1
+
+# solo resolver y verificar, sin escribir
+powershell -NoProfile -ExecutionPolicy Bypass -File .\docs\perugius\skins\resolver_skins_mojang.ps1 -SoloProbar
 ```
 
-- `/npc skin --url <png>` está **respaldado por Mineskin** por dentro (así lo dice la
-  wiki). Para modelo *slim* (Alex) conviene subir el PNG a mineskin.org y usar su
-  opción de modelo.
-- **Trampa del proyecto:** el server corre `online-mode=false`. La wiki de Citizens
-  avisa que `/npc skin <NOMBRE>` (resolver una skin de Mojang por nombre) puede
-  **fallar en offline mode**. Usá `--url` (blob de Mineskin) para no depender de Mojang.
-- Para que Bedrock (Geyser) la vea, no hay que configurar nada extra: Citizens ≥ la
-  build con "Bedrock skin support" ya manda el blob correcto (ver abajo).
+Después se copia `npcs-skins.yml` a `plugins/MushokuCore/` y se coloca cada NPC con
+`/vecino colocar <id>`.
+
+Dos detalles que costaron encontrar:
+
+- **El CDN de Mojang sirve la textura con el SHA256 sin ceros a la izquierda.** Un hash
+  que empieza en `09df...` se pide como `/texture/9df...`. El archivo descargado sí
+  tiene el hash completo, así que la verificación se hace contra el SHA documentado.
+- **`rudeus` quedó sin firma.** La cuenta `Rudeus` cambió de skin después del
+  2026-10-18; el script usa la textura original desde `textures.minecraft.net`, que
+  sigue publicada. Una propiedad `textures` sin firma se usa igual en cabezas custom
+  del cliente Java; el caso equivalente en Geyser no se probó todavía [A VERIFICAR].
+
+`generar_skins.ps1` sigue disponible para el camino manual (publicar PNG propios y
+pasar `-PublicBaseUrl`). Se niega a pisar un `npcs-skins.yml` que ya tiene valores,
+salvo que se pase `-Force`.
+
+### Si algún día se migra a Citizens
+
+Nada de esto se aprovecha automáticamente: Citizens necesita la URL pública del PNG o
+el blob de Mineskin (`/npc skin --url <png>`, `/npc skin -t <uuid> <data> <signature>`).
+Los `value` y `signature` que genera `resolver_skins_mojang.ps1` sirven para ese segundo
+formato sin volver a resolver nada.

@@ -4,14 +4,31 @@ Fecha: 2026-10-27
 Repo de trabajo: `C:\Dev\Minecraft_server\Minecraft server`
 Repo de la PC principal: `C:\Dev\Minecraft-server`
 
-## Lo que NO se hizo todavía
+## Estado al 2026-10-28 00:00
 
-Este documento describe pasos que **no se ejecutaron**:
+Lo que pasó, en orden:
 
-- El plugin **nunca corrió con estos módulos**. No hay servidor levantado con el jar nuevo, ningún jugador vio el mercado ni un vecino, y no hay prueba en Java ni en Bedrock.
-- El despliegue al hosting y el reinicio del panel quedan pendientes, y los hace el usuario.
-- Las skins siguen sin publicar: los 12 PNG no están en disco ni en una URL pública, así que hasta que se complete el paso 8 todos los NPC salen como aldeano sin skin.
-- La migración `V003` no se aplicó a la base de producción. Sí se aplicó, junto con `V001` y `V002`, a una base SQLite vacía en la notebook (ver abajo).
+1. **Build oficial y despliegue inicial (2026-10-27 22:58).** `build.ps1` en la PC principal: exit 0, 148 clases, jar de **320.497 B**, SHA256 `130B2603…351C3B`. Subida con WinSCP por el patrón `.new`, verificada bajando cada archivo antes del `mv`:
+
+| Archivo remoto | Bytes | Backup del anterior |
+|---|---:|---|
+| `/plugins/MushokuCore-1.0.0.jar` | 320.497 | `MushokuCore-1.0.0.jar.bak-20261027T2258Z` (248.440 B) |
+| `/plugins/MushokuCore/config.yml` | 6.587 | `config.yml.bak-20261027T2258Z` (5.595 B) |
+| `/plugins/MushokuCore/messages.yml` | 7.629 | `messages.yml.bak-20261027T2258Z` (5.142 B) |
+
+El diff previo contra el live mostró solo agregados: ninguna línea que existiera en producción se perdió.
+
+2. **Primer arranque con los módulos (2026-10-27 23:25), reinicio hecho por el usuario.** Backup `mushoku_20261028T022603Z_pre-migracion.db`, `V003` aplicada, log con `Modulo 'market' habilitado: 5 categoria(s), 30 item(s).` y `Modulo 'npcs' habilitado: 12 definicion(es), 0 ubicado(s).`, cero `SEVERE` de MushokuCore.
+
+3. **Segundo build y despliegue (2026-10-27 23:55).** `NpcEntityFactory` pasó a la API tipada de `Mannequin` y se agregó `npcs-skins.yml` con las 12 skins resueltas por Mojang. Jar de **328.312 B**, SHA256 `5127B290…5357540`, desplegado y verificado por descarga. Backup del jar anterior: `MushokuCore-1.0.0.jar.bak-20261027T2355Z` (320.497 B).
+
+**El servidor sigue corriendo el jar de 320.497 B.** Paper no reemplaza plugins en caliente: hasta el próximo reinicio no hay mannequins ni skins, solo aldeanos de respaldo.
+
+Sigue sin hacerse:
+
+- **Prueba in-game del mercado y de los vecinos.** Nadie compró, habló ni clickeó un NPC todavía.
+- **Prueba de Bedrock.** El fuente de Geyser 2.12 dice que la skin se resuelve y se manda por la lista de jugadores, pero `setDescription` está en `// TODO`, así que en Bedrock se espera skin y nombre sin la línea de título. [A VERIFICAR con cliente real]
+- **Outbox de LuckPerms en producción**: `agregarGrupo`/`quitarGrupo` devuelven `false` (`luckperms_outbox` con `attempts=50`, `done=0`). Causa sin determinar.
 
 Lo que sí está verificado al 2026-10-27:
 
@@ -28,7 +45,7 @@ Lo que sí está verificado al 2026-10-27:
 | Claves de mensaje | Las 41 claves `mercado.*` y `vecinos.*` usadas en el código existen en `messages.yml` (la única coincidencia suelta, `mercado.compra`, es la acción de auditoría, no una clave) |
 | API de la skin | `Mannequin#setProfile(io.papermc.paper.datacomponent.item.ResolvableProfile)`, `ResolvableProfile.resolvableProfile()` estático, `ResolvableProfile$Builder#addProperty(com.destroystokyo.paper.profile.ProfileProperty)` y `ProfileProperty(String,String,String)`, todo confirmado con `javap` sobre el jar de la API, no solo con la javadoc |
 
-La compilación se hizo en la notebook con un classpath armado a mano, porque acá no existe `servidor\libraries`. Eso valida el código y las firmas, **no** reemplaza al build oficial: el jar de producción lo tiene que generar `build.ps1` en la PC principal, que compila contra el `paper-api` de `servidor\libraries`. Los pasos del método están en el anexo A.
+La primera validación se hizo en la notebook con un classpath armado a mano, porque ahí no existe `servidor\libraries`. Eso valida el código y las firmas, **no** reemplaza al build oficial. El jar de producción lo generó `build.ps1` en la PC principal el 2026-10-27, compilando contra el `paper-api` que resuelve solo (148 clases, 328.312 B). Los pasos del método están en el anexo A.
 
 ## 1. Qué se agregó
 
@@ -41,7 +58,7 @@ La compilación se hizo en la notebook con un classpath armado a mano, porque ac
 | Migración | `resources/migrations/V003__market_npcs.sql` | Tablas `market_purchases`, `npc_reputation`, `npc_gifts` |
 | Catálogo | `resources/market.yml` | Precios en diamantes; solo vende, no compra |
 | Vecinos | `resources/npcs.yml` | 12 NPC con diálogo, regalo y trueques |
-| Skins | `docs/perugius/skins/generar_skins.ps1` | Descarga, verifica SHA256 y arma `npcs-skins.yml` |
+| Skins | `docs/perugius/skins/resolver_skins_mojang.ps1` | Resuelve las 12 skins por Mojang y arma `npcs-skins.yml` (value + signature) |
 
 Decisiones de diseño que conviene tener presentes:
 
@@ -52,7 +69,7 @@ Decisiones de diseño que conviene tener presentes:
 
 ## 2. Compilar en la PC principal
 
-Requisitos: JDK 25 en `C:\Program Files\Eclipse Adoptium\jdk-25.0.4.101-hotspot` y la carpeta `servidor\libraries` de Paper al lado del repo.
+Requisitos: JDK 25 en `C:\Program Files\Eclipse Adoptium\jdk-25.0.4.101-hotspot` y la carpeta `libraries` de Paper. En la PC principal el repo `C:\Dev\Minecraft-server` no tiene `servidor\` al lado: `build.ps1` resuelve la tercera ruta de la lista, `C:\Dev\OPENCLAUDIO\minecraft_server\servidor\libraries`, y de ahí sale también `paper-api-26.2.build.134-stable.jar` (el mismo Paper que corre el servidor local).
 
 `build.ps1` **tiene que correr en un proceso PowerShell hijo**. Si lo invocás en línea, el aviso de `javac` sobre API deprecada que va a stderr corta la corrida y no se arma el jar.
 
@@ -65,8 +82,8 @@ Get-ChildItem .\MushokuCore\build\libs | Select-Object Name,Length,LastWriteTime
 
 Señales de que salió bien:
 
-- El log termina con el tamaño del jar, no en `== javac ==`.
-- `build\libs\MushokuCore-1.0.0.jar` tiene fecha de hoy y más bytes que el jar actual (200.688 B al 2026-10-22).
+- Exit code 0 y la tabla final con `Jar`, `Bytes` y `Sha256`.
+- `build\libs\MushokuCore-1.0.0.jar` con fecha de hoy y más bytes que el jar anterior (248.440 B al 2026-10-27).
 
 Si `javac` falla, el error real está en el log. Los puntos más probables, por ser código nuevo:
 
@@ -75,6 +92,15 @@ Si `javac` falla, el error real está en el log. Los puntos más probables, por 
 | `cannot find symbol: class Mannequin` | Alguien reemplazó la reflexión por uso directo | Volver a la versión por `Class.forName` |
 | `cannot find symbol: method trueque(...)` | Se esperaba `void` | `NpcsService.trueque` devuelve `boolean` desde esta versión |
 | `incompatible types: ... NpcHolder` | Cambió el holder de la GUI | Revisar `NpcGui.manejarClick` |
+| `package net.kyori.adventure.text.serializer.legacy does not exist` | Falta el artefacto `adventure-text-serializer-legacy` en el classpath | Ya resuelto: ver abajo |
+
+**El primer build oficial falló por esta última razón** y el error no se veía: `Componentes.java` importa `LegacyComponentSerializer`, que vive en `net\kyori\adventure-text-serializer-legacy` y no en `adventure-api`. En la notebook compilaba porque ahí el classpath se armó a mano con ese jar; el `build.ps1` no lo pedía y javac moría con exit 1 mientras el script solo decía `javac fallo con exit code 1`, porque la salida quedaba detrás de `Write-Verbose`.
+
+Dos cambios en `build.ps1` (2026-10-27):
+
+1. Se agrega `adventure-text-serializer-legacy` a la lista de dependencias resueltas por patrón, igual que las demás. Paper lo trae en runtime, así que es solo de compilación.
+2. `Invoke-Nativo` ahora devuelve código y salida, y `Mostrar-Fallo` mete las últimas 40 líneas en el `throw`. Un fallo de `javac` o `jar` se lee sin pasar `-Verbose`.
+
 
 ## 3. Copiar los YAML al data folder
 
@@ -89,20 +115,31 @@ Paper **no vuelve a extraer** un recurso del jar si el archivo ya existe en `plu
 | `npcs-skins.yml` | Opcional | Lo genera el script del paso 7 |
 | `npcs-locations.yml` | No | Lo crea `/vecino colocar` |
 
+**Hecho el 2026-10-27:** en el hosting se subieron `config.yml` y `messages.yml` por SFTP con el mismo patrón del paso 4. Antes se comparó el live contra el repo línea por línea: las únicas diferencias eran agregados, así que no se perdió ninguna personalización.
+
+Si en algún momento trabajás contra una copia local del servidor, el equivalente es:
+
 ```powershell
 $origen = "C:\Dev\Minecraft-server\MushokuCore\src\main\resources"
-$destino = "C:\Dev\Minecraft-server\servidor\plugins\MushokuCore"
+$destino = "<ruta del servidor>\plugins\MushokuCore"
 Copy-Item "$origen\messages.yml" $destino -Force
 Copy-Item "$origen\config.yml"   $destino -Force
 ```
 
-Si el servidor del panel es otra copia, apuntá `$destino` a ese `plugins\MushokuCore`.
 
 ## 4. Desplegar el jar
 
-1. Guardá el jar actual (`MushokuCore-1.0.0.jar`) como `MushokuCore-1.0.0.jar.antes-mercado` en una carpeta de backups, fuera de `plugins\`.
-2. Subí el jar nuevo a `/plugins/`. Sirve `reemplazar_sftp_verificado.py`, que verifica bajando el archivo de vuelta. No uses `subir_sftp.py`: reanuda por tamaño y puede dejar un archivo distinto con el mismo nombre parcial.
-3. Reiniciá el servidor desde el panel. **El reinicio lo hacés vos**; por SFTP no se puede.
+**Hecho el 2026-10-27** con WinSCP y sesión guardada, desde la PC principal. El patrón que funcionó, para repetirlo:
+
+1. `put` de los tres archivos con extensión `.new` (jar, `config.yml`, `messages.yml`).
+2. `get` de cada `.new` y comparación de SHA256 con el local. Si no coincide, no se sigue.
+3. `mv <archivo> <archivo>.bak-<sello>` y después `mv <archivo>.new <archivo>`.
+4. `get` de los tres archivos ya en su lugar y comparación de SHA256 otra vez.
+
+Por qué así: `mv` falla si el destino existe, y `subir_sftp.py` reanuda por tamaño y puede dejar un archivo distinto con el mismo nombre parcial. El script que se usó es `reemplazar_sftp_verificado.py`, del árbol de la PC principal, con ese mismo orden.
+
+El reinicio **lo hace el usuario** desde el panel: por SFTP no se puede y el jar viejo sigue cargado hasta que el proceso arranque de nuevo.
+
 
 ## 5. Verificar el arranque
 
@@ -170,8 +207,8 @@ Todavía no hay coordenadas cargadas: los 12 están definidos pero sin ubicar. C
 Detalles que conviene saber:
 
 - El bloque debajo de los pies del NPC también abre el diálogo. Sirve cuando el cliente no puede clickear la entidad.
-- Si el NPC no tiene `skin.value`, se crea un **aldeano** con el nombre y el título. Es el modo por defecto hasta publicar las skins.
-- Si `Mannequin` existe pero el perfil falla, el log deja `no se pudo aplicar la skin (...)`. Se usa aldeano y el resto funciona igual.
+- Si el NPC no tiene `skin.value`, se crea un **aldeano** con el nombre visible (sin la línea de título, que solo tiene el mannequin). Es el respaldo cuando falta la skin.
+- Si `Mannequin` existe pero el perfil falla, el log deja un warning con el id y el motivo (`no se pudo crear el mannequin con skin (...)`). Se usa aldeano y el resto funciona igual.
 - `/vecino recargar` relee `npcs.yml` y `npcs-locations.yml`, vuelve a spawnear y elimina la entidad de un NPC que ya no esté en el YAML.
 
 Permisos:
@@ -183,39 +220,65 @@ Permisos:
 | `mushoku.vecino.use` | Hablar, trueques y consultar reputación |
 | `mushoku.admin.vecinos` | `colocar`, `quitar`, `recargar` |
 
-## 8. Publicar las skins
+## 8. Skins de los vecinos (resueltas y desplegadas el 2026-10-27 23:55)
 
-El base64 de una skin **no contiene el PNG**: es un JSON con una URL pública que el cliente descarga al ver el NPC. Sin hosting público no hay skin.
+El base64 de una skin **no contiene el PNG**: es un JSON con una URL que el cliente, o Geyser, descarga al ver al NPC. La idea original era publicar los 12 PNG o subirlos a Mineskin. No hizo falta: las 12 skins de `FUENTES.md` salieron de cuentas reales, y el sessionserver de Mojang devuelve la propiedad `textures` ya firmada.
 
-Pasos:
+Script: `docs/perugius/skins/resolver_skins_mojang.ps1`
 
-1. Publicá los 12 PNG en una URL estable que termina en `/`. La lista con nombres de archivo, URL de origen y SHA256 está en `docs/perugius/skins/FUENTES.md`.
-2. Verificá las descargas sin escribir nada:
+1. Por cada id resuelve la cuenta, descarga la textura y compara el SHA256 con el documentado.
+2. Si coincide, usa el `value` y la `signature` firmados por Mojang.
+3. Si la cuenta cambió de skin, arma la propiedad sin firma apuntando a la textura original en `textures.minecraft.net`. Ojo con el detalle del CDN: la URL usa el SHA256 **sin ceros a la izquierda**, o sea `09df...` se sirve como `/texture/9df...`.
+4. Si nada de eso responde, termina con código 1 sin escribir el YAML.
+
+Resultado del 2026-10-27: **12 de 12**. Once firmadas por Mojang y `rudeus` sin firma, porque la cuenta `Rudeus` cambió de skin después del 2026-10-18 y la textura original sigue publicada en el CDN. Cada URL se verificó bajándola y comparando el hash del archivo.
+
+El archivo quedó en `MushokuCore\src\main\resources\npcs-skins.yml` (viaja en el jar) y desplegado en `plugins/MushokuCore/npcs-skins.yml`, 14.038 B, SHA256 `3E3E94CE8C3BF92E...`.
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\docs\perugius\skins\generar_skins.ps1 -SoloVerificar
+# regenerar (no requiere clave ni cuenta)
+powershell -NoProfile -ExecutionPolicy Bypass -File .\docs\perugius\skins\resolver_skins_mojang.ps1
+
+# resolver y verificar sin escribir
+powershell -NoProfile -ExecutionPolicy Bypass -File .\docs\perugius\skins\resolver_skins_mojang.ps1 -SoloProbar
 ```
 
-3. Generá el YAML apuntando al servidor:
+Para aplicarlo sin reiniciar: `/vecino recargar`. Para volver a aldeano: borrar `npcs-skins.yml` del data folder, o dejar los `value` vacíos, y recargar.
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\docs\perugius\skins\generar_skins.ps1 `
-  -PublicBaseUrl "https://tu-host/skins/" `
-  -Salida "C:\ruta\al\servidor\plugins\MushokuCore\npcs-skins.yml"
-```
+`generar_skins.ps1` (publicar PNG propios con `-PublicBaseUrl`) sigue existiendo como alternativa, pero ahora se niega a pisar un `npcs-skins.yml` que ya tiene valores, salvo que se pase `-Force`.
 
-4. Copiá `npcs-skins.yml` a `plugins/MushokuCore/` y corré `/vecino recargar`. No hace falta recompilar.
-5. Para volver a aldeano, dejá el `value` vacío o borrá el archivo y recargá.
+Sobre Bedrock, corregido después de leer el fuente de Geyser 2.12: `MannequinEntity.setProfile` llama a `AvatarEntity.setSkin`, que resuelve la propiedad estática y descarga la textura. `isListed()` en `false` solo cambia el paquete con el que viaja la skin. Lo que Geyser no implementa es `setDescription`, que está en `// TODO`: en Bedrock se ve la skin y el nombre, pero no la línea de título. Falta confirmarlo con un cliente real.
 
-Si un SHA256 no coincide, el script termina con código 1 y no escribe el YAML. Ese error no se saltea.
+## 8.1 Mannequin o Citizens: decisión y refactor
 
-Sobre Bedrock: `Mannequin` es una entidad de Java. Que Geyser la traduzca y muestre la skin **no está probado**. Por eso existe el fallback de aldeano y los comandos `/vecino hablar` y `/vecino trueques`, que no dependen de clickear la entidad.
+Se evaluaron las dos opciones. Ganó **Mannequin vanilla**, por estas razones:
+
+- En `paper-api 26.2` la API es tipada y estable (`org.bukkit.entity.Mannequin`, `ResolvableProfile`, `ProfileProperty`). La reflexión que tenía `NpcEntityFactory` era prevención nuestra, no una limitación de la API.
+- Citizens no desbloquea las skins: `/npc skin <nombre>` solo sirve para skins de cuentas existentes, y para PNG propios exige `/npc skin --url <png público>` o un blob de Mineskin. Es el mismo requisito que ya resolvimos con Mojang.
+- Mantener un segundo store (los saves de Citizens) además de SQLite, más reescribir creación, colocación, borrado y carga, no se justifica para 12 NPC que solo hablan y venden.
+- Citizens seguiría siendo la opción si algún día los NPC tienen que caminar, porque su pathfinding está probado.
+
+Cambios en el código:
+
+- `NpcEntityFactory` ya no usa reflexión. Crea `Mannequin` con `setProfile(ResolvableProfile)`, `setImmovable(true)` y `setDescription(Component)`, y marca la entidad como persistente.
+- El fallback a aldeano deja un warning con el id y el motivo, en vez de caer en silencio.
+- Si el jar llegara a correr sin la entidad, el `LinkageError` se atrapa y queda el aldeano.
+
+Build y despliegue del 2026-10-27 23:55: jar de **328.312 B**, SHA256 `5127B2909F4BAC63...`, 148 clases, con `npcs-skins.yml` adentro. Backup del jar anterior en `plugins/MushokuCore-1.0.0.jar.bak-20261027T2355Z` (320.497 B).
 
 ## 9. Rollback
 
+El hosting tiene dos puntos de retorno:
+
+| Backup | Bytes | A qué vuelve |
+|---|---:|---|
+| `/plugins/MushokuCore-1.0.0.jar.bak-20261027T2355Z` | 320.497 | Jar con mercado y vecinos, `NpcEntityFactory` por reflexión, sin `npcs-skins.yml` |
+| `/plugins/MushokuCore-1.0.0.jar.bak-20261027T2258Z` | 248.440 | Jar anterior a los módulos nuevos |
+
 1. Detené el servidor desde el panel.
-2. Reponé el jar anterior (`MushokuCore-1.0.0.jar.antes-mercado`).
-3. Si querés apagar solo los módulos nuevos sin volver el jar, en `plugins/MushokuCore/config.yml`:
+2. Mové o renombrá el jar actual y renombrá el backup elegido a `MushokuCore-1.0.0.jar`.
+3. Los YAML anteriores quedaron como `config.yml.bak-20261027T2258Z` y `messages.yml.bak-20261027T2258Z` en `/plugins/MushokuCore/`. `npcs-skins.yml` no existía antes: para anularlo alcanza con borrarlo.
+4. Si querés apagar solo los módulos nuevos sin volver el jar, en `plugins/MushokuCore/config.yml`:
 
 ```yaml
 modules:
@@ -223,16 +286,19 @@ modules:
   npcs: false
 ```
 
-4. Reiniciá.
+5. Reiniciá.
 
 La migración `V003` no se revierte sola. Las tres tablas nuevas quedan vacías y no afectan a los módulos viejos, así que no hace falta bajarlas.
 
+
 ## 10. Pendientes después de la prueba
 
-- Confirmar en el log que la skin se aplicó y no cayó a aldeano.
-- Decidir el hosting definitivo de los PNG. `mskins.net` no declara licencia: para producción conviene re-subir las imágenes a un host propio y atribuir la fuente.
+- **Reiniciar el panel** para que cargue el jar de 328.312 B (el de mannequins tipados y skins).
+- Colocar un NPC, mirarlo desde Java y desde Bedrock, y confirmar en el log que no cayó a aldeano.
+- Confirmar si en Bedrock falta la línea de título, como dice el fuente de Geyser.
 - Ajustar precios de `market.yml` con datos de economía real (cuántos diamantes circulan por hora).
 - Definir si la economía suma más adelante una fuente de ingreso, porque hoy el mercado solo retira diamantes.
+- Investigar el outbox de LuckPerms en producción (`attempts=50`, `done=0`).
 
 ## Anexo A. Cómo se compiló sin el servidor
 
@@ -261,7 +327,9 @@ Copy-Item .\MushokuCore\src\main\resources\* $out -Recurse -Force
 & jar --create --file $outJar -C $out .
 ```
 
-Resultado: `javac` exit 0, 148 clases, jar de 320.483 B con `market.yml`, `npcs.yml` y `migrations/V003__market_npcs.sql` adentro. Ese jar es **solo evidencia de que compila**; no se desplegó.
+Resultado: `javac` exit 0, 148 clases, jar de 320.483 B con `market.yml`, `npcs.yml` y `migrations/V003__market_npcs.sql` adentro. Ese jar es **solo evidencia de que compila** y no se desplegó. El que corre en producción hoy es el que generó `build.ps1` en la PC principal a las 23:55: **328.312 B**, SHA256 `5127B2909F4BAC63624B304CA8688E0B2014E0C29676C4EC45AF4BD153357540`, con `npcs-skins.yml` adentro. La diferencia de tamaño contra el build de 22:58 (320.497 B) es el refactor a `Mannequin` tipado más el archivo de skins, no timestamps.
+
+La verificación de la notebook se hizo **antes** de ese refactor, así que el primer defecto de la tabla de abajo ya no aplica: `NpcEntityFactory` no usa reflexión.
 
 ### Defectos que aparecieron al verificar
 
