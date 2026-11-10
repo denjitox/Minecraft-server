@@ -102,6 +102,142 @@ Dos cambios en `build.ps1` (2026-10-27):
 2. `Invoke-Nativo` ahora devuelve código y salida, y `Mostrar-Fallo` mete las últimas 40 líneas en el `throw`. Un fallo de `javac` o `jar` se lee sin pasar `-Verbose`.
 
 
+## 2.1 Novedades: ofertas por bioma y rotacion (implementado 2026-10-22)
+
+Las ofertas del mercado ahora pueden tener **disponibilidad condicional** sin estado en BD:
+
+- **biomes** (opcional): lista de biomas donde la oferta esta disponible. Si falta o esta vacia, la oferta esta disponible en todos los biomas. Se comparan nombres normalizados en minusculas (se aceptan desert o minecraft:desert; se usa Biome#getKey().getKey() y como fallback Biome#name()).
+- **rotation** (opcional): rotacion deterministica por periodo UTC.
+  - period: daily (o day/diario) | weekly (o week/semanal)
+  - every: N (activa 1 de cada N periodos; 1 = siempre)
+  - offset: K opcional; si falta se deriva de forma estable del id del item (hash(itemId) mod N)
+
+Una oferta es visible/comprable solo si **cumple ambas condiciones** (bioma actual del jugador **y** periodo activo). El filtrado se aplica en: GUI, /mercado lista, /mercado comprar, tab-complete y la validacion de comprar().
+
+**Ejemplo (market.yml):**
+``yaml
+items:
+  cactus-del-oasis:
+    material: CACTUS
+    amount: 16
+    price-diamonds: 1
+    biomes: [desert, badlands, eroded_badlands, wooded_badlands]
+  oferta-diaria-sorpresa:
+    material: EMERALD
+    amount: 4
+    price-diamonds: 3
+    rotation: { period: daily, every: 3 }
+  hielo-glacial:
+    material: PACKED_ICE
+    amount: 32
+    price-diamonds: 3
+    biomes: [snowy_plains, ice_spikes, snowy_taiga, frozen_river, frozen_ocean, grove, snowy_slopes, frozen_peaks]
+``
+
+**Archivos tocados (codigo):**
+- module/market/MarketItem.java — incluye Set<String> biomes y MarketRotation rotation (con constructor de compatibilidad).
+- module/market/MarketRotation.java — nuevo, calculo deterministico dia/semana UTC.
+- module/market/MarketService.java — parsea iomes/otation, expone disponible(), iomeActual(), itemsDisponibles(), categoriasDisponibles(), valida en comprar() (nuevo resultado NO_DISPONIBLE).
+- module/market/MarketGui.java / MercadoCommand.java — filtran por jugador, muestran bioma actual y refrescan tras comprar.
+- esources/market.yml — cabecera documentada + ofertas de ejemplo (bioma y rotacion).
+- esources/messages.yml — nuevas claves bajo market.* (incluye 
+o-disponible).
+
+**Limitaciones conocidas:**
+- Rotacion deterministica global (mismo item activo/inactivo para todos en ese periodo). No hay rotacion por jugador.
+- Los nombres de bioma deben coincidir con la clave de Minecraft (ej. plains, dark_forest, snowy_taiga).
+- Sin estado en BD: el bucket cambia con el dia/semana UTC; /mercado recargar relee el YAML pero no cambia el periodo activo.
+- Requiere compilar con el toolchain del proyecto (Java + Paper API del servidor). Build no ejecutado en este entorno.
+
+## 2.1 Novedades: ofertas por bioma y rotacion (implementado 2026-10-22)
+
+Las ofertas del mercado ahora pueden tener **disponibilidad condicional** sin estado en BD:
+
+- **biomes** (opcional): lista de biomas donde la oferta esta disponible. Si falta o esta vacia, la oferta esta disponible en todos los biomas. Se comparan nombres normalizados en minusculas (se aceptan desert o minecraft:desert; se usa Biome#getKey().getKey() y como fallback Biome#name()).
+- **rotation** (opcional): rotacion deterministica por periodo UTC.
+  - period: daily (o day/diario) | weekly (o week/semanal)
+  - every: N (activa 1 de cada N periodos; 1 = siempre)
+  - offset: K opcional; si falta se deriva de forma estable del id del item (hash(itemId) mod N)
+
+Una oferta es visible/comprable solo si **cumple ambas condiciones** (bioma actual del jugador **y** periodo activo). El filtrado se aplica en: GUI, /mercado lista, /mercado comprar, tab-complete y la validacion de comprar().
+
+**Ejemplo (market.yml):**
+`yaml
+items:
+  cactus-del-oasis:
+    material: CACTUS
+    amount: 16
+    price-diamonds: 1
+    biomes: [desert, badlands, eroded_badlands, wooded_badlands]
+  oferta-diaria-sorpresa:
+    material: EMERALD
+    amount: 4
+    price-diamonds: 3
+    rotation: { period: daily, every: 3 }
+  hielo-glacial:
+    material: PACKED_ICE
+    amount: 32
+    price-diamonds: 3
+    biomes: [snowy_plains, ice_spikes, snowy_taiga, frozen_river, frozen_ocean, grove, snowy_slopes, frozen_peaks]
+`
+
+**Archivos tocados (codigo):**
+- module/market/MarketItem.java — incluye Set<String> biomes y MarketRotation rotation (con constructor de compatibilidad).
+- module/market/MarketRotation.java — nuevo, calculo deterministico dia/semana UTC.
+- module/market/MarketService.java — parsea iomes/otation, expone disponible(), iomeActual(), itemsDisponibles(), categoriasDisponibles(), valida en comprar() (nuevo resultado NO_DISPONIBLE).
+- module/market/MarketGui.java / MercadoCommand.java — filtran por jugador, muestran bioma actual y refrescan tras comprar.
+- esources/market.yml — cabecera documentada + 4 ofertas de ejemplo (bioma y rotacion) en categoria especial.
+- esources/messages.yml — nuevas claves bajo market.* (incluye 
+o-disponible).
+
+**Limitaciones conocidas:**
+- Rotacion deterministica global (mismo item activo/inactivo para todos en ese periodo). No hay rotacion por jugador.
+- Los nombres de bioma deben coincidir con la clave de Minecraft (ej. plains, dark_forest, snowy_taiga).
+- Sin estado en BD: el bucket cambia con el dia/semana UTC; /mercado recargar relee el YAML pero no cambia el periodo activo.
+- Requiere compilar con el toolchain del proyecto (Java + Paper API del servidor). Build no ejecutado en este entorno.
+
+## 2.1 Novedades: ofertas por bioma y rotacion (implementado 2026-10-22)
+
+Las ofertas del mercado ahora pueden tener **disponibilidad condicional** sin estado en BD:
+
+- **biomes** (opcional): lista de biomas donde la oferta esta disponible. Si falta o esta vacia, la oferta esta disponible en todos los biomas. Se comparan nombres normalizados en minusculas (se aceptan desert o minecraft:desert; se usa Biome#getKey().getKey() y como fallback Biome#name()).
+- **rotation** (opcional): rotacion deterministica por periodo UTC.
+  - period: daily (o day/diario) | weekly (o week/semanal)
+  - every: N (activa 1 de cada N periodos; 1 = siempre)
+  - offset: K opcional; si falta se deriva de forma estable del id del item (hash(itemId) mod N)
+
+Una oferta es visible/comprable solo si **cumple ambas condiciones** (bioma actual del jugador **y** periodo activo). El filtrado se aplica en: GUI, /mercado lista, /mercado comprar, tab-complete y la validacion de comprar().
+
+**Ejemplo (market.yml):**
+``yaml
+items:
+  cactus-del-oasis:
+    material: CACTUS
+    amount: 16
+    price-diamonds: 1
+    biomes: [desert, badlands, eroded_badlands, wooded_badlands]
+  oferta-diaria-sorpresa:
+    material: EMERALD
+    amount: 4
+    price-diamonds: 3
+    rotation: { period: daily, every: 3 }
+``
+
+**Archivos tocados (codigo):**
+- module/market/MarketItem.java — incluye Set<String> biomes y MarketRotation rotation (con constructor de compatibilidad).
+- module/market/MarketRotation.java — nuevo, calculo deterministico dia/semana UTC.
+- module/market/MarketService.java — parsea iomes/otation, expone disponible(), iomeActual(), itemsDisponibles(), categoriasDisponibles(), valida en comprar() (nuevo resultado NO_DISPONIBLE).
+- module/market/MarketGui.java / MercadoCommand.java — filtran por jugador, muestran bioma actual y refrescan tras comprar.
+- esources/market.yml — cabecera documentada + ofertas de ejemplo (bioma y rotacion).
+- esources/messages.yml — nuevas claves bajo market.* (incluye 
+o-disponible).
+
+**Limitaciones conocidas:**
+- Rotacion deterministica global (mismo item activo/inactivo para todos en ese periodo). No hay rotacion por jugador.
+- Los nombres de bioma deben coincidir con la clave de Minecraft (ej. plains, dark_forest, snowy_taiga).
+- Sin estado en BD: el bucket cambia con el dia/semana UTC; /mercado recargar relee el YAML pero no cambia el periodo activo.
+- Requiere compilar con el toolchain del proyecto (Java + Paper API del servidor). Build no ejecutado en este entorno.
+
 ## 3. Copiar los YAML al data folder
 
 Paper **no vuelve a extraer** un recurso del jar si el archivo ya existe en `plugins/MushokuCore/`. Con un plugin ya instalado, esto aplica a los cinco archivos.

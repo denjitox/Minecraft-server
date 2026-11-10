@@ -10,11 +10,18 @@
 #     icon:          material del icono en el menu principal
 #     slot:          0..26, posicion en el menu principal
 #     items.<id>:
-#       material:      material de Bukkit, en MAYUSCULAS o minusculas
-#       amount:        cantidad que recibe el jugador
-#       price-diamonds: diamantes que cuesta la oferta completa
-#       name:          opcional, nombre visible
-#       lore:          opcional, lista de lineas
+#       material:        material de Bukkit, en MAYUSCULAS o minusculas
+#       amount:          cantidad que recibe el jugador
+#       price-diamonds:  diamantes que cuesta la oferta completa
+#       name:            opcional, nombre visible
+#       lore:            opcional, lista de lineas
+#       biomes:          opcional, lista de biomas donde la oferta esta disponible
+#                        (ej: [desert, badlands]). Si falta o esta vacio: disponible en todos.
+#                        El nombre se compara en minusculas (se aceptan "minecraft:desert" o "desert").
+#       rotation:        opcional, rotacion deterministica (sin estado en BD)
+#         period: daily | weekly   (dia/semana UTC)
+#         every:  N                  (activa 1 de cada N periodos; 1 = siempre)
+#         offset: K                  (opcional; si falta se deriva del id del item)
 #
 # Reglas de carga:
 #   - amount y price-diamonds tienen que ser mayores que 0; si no, la oferta se omite
@@ -24,6 +31,8 @@
 #     entregar mas de un stack, cargar varias ofertas.
 #   - una categoria muestra hasta 45 ofertas (los slots 45 a 53 son relleno y botones).
 #   - el precio es por la oferta completa, no por unidad.
+#   - Disponibilidad: una oferta con biomes/rotation solo se muestra y se puede comprar
+#     si cumple AMBAS condiciones para el jugador (bioma actual y periodo activo).
 #   - /mercado recargar relee este archivo sin reiniciar.
 
 titulo: "&8&lMercado de Mushoku"
@@ -207,3 +216,53 @@ categories:
         amount: 1
         price-diamonds: 3
         name: "&fMontura"
+      cactus-del-oasis:
+        material: CACTUS
+        amount: 16
+        price-diamonds: 1
+        name: "&aCactus del oasis"
+        lore:
+          - "&7Oferta disponible solo en biomas deserticos."
+        biomes:
+          - desert
+          - badlands
+          - eroded_badlands
+          - wooded_badlands
+      hielo-glacial:
+        material: PACKED_ICE
+        amount: 32
+        price-diamonds: 3
+        name: "&bHielo glacial"
+        lore:
+          - "&7Solo en biomas frios."
+        biomes:
+          - snowy_plains
+          - ice_spikes
+          - snowy_taiga
+          - frozen_river
+          - frozen_ocean
+          - deep_frozen_ocean
+          - grove
+          - snowy_slopes
+          - frozen_peaks
+          - jagged_peaks
+      oferta-diaria-sorpresa:
+        material: EMERALD
+        amount: 4
+        price-diamonds: 3
+        name: "&aEsmeraldas (oferta diaria)"
+        lore:
+          - "&7Rotacion diaria: 1 de cada 3 dias."
+        rotation:
+          period: daily
+          every: 3
+      bloque-de-oro-rotativo:
+        material: GOLD_BLOCK
+        amount: 2
+        price-diamonds: 6
+        name: "&6Bloque de oro (rotacion semanal)"
+        lore:
+          - "&7Oferta rotativa: aparece 1 de cada 2 semanas."
+        rotation:
+          period: weekly
+          every: 2

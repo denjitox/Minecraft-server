@@ -13,14 +13,17 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.bukkit.Material;
+import org.bukkit.block.Biome;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -33,6 +36,10 @@ import org.bukkit.plugin.java.JavaPlugin;
  * <p>La moneda son diamantes fisicos del inventario: no hay Vault, ni saldo virtual, ni
  * venta al mercado en esta version. El servicio no habla con el jugador; devuelve un
  * {@link ResultadoCompra} y el comando o la GUI arman el mensaje.</p>
+ *
+ * <p>Disponibilidad: una oferta puede restringirse por bioma ({@code biomes}) y/o rotar
+ * en el tiempo ({@code rotation}, deterministica por dia/semana UTC sin estado en BD).
+ * Si una oferta no esta disponible para el jugador, no se muestra ni se puede comprar.</p>
  */
 public final class MarketService {
 
@@ -42,7 +49,8 @@ public final class MarketService {
         SIN_DIAMANTES("mercado.sin-diamantes"),
         SIN_ESPACIO("mercado.sin-espacio"),
         LIMITE("mercado.limite"),
-        ITEM_DESCONOCIDO("mercado.desconocido");
+        NO_DISPONIBLE("mercado.no-disponible"),
+        INVALIDO("mercado.invalido");
 
         private final String claveMensaje;
 
@@ -55,259 +63,391 @@ public final class MarketService {
         }
     }
 
-    private static final long VENTANA_MS = 60_000L;
+    private static final long UN_MINUTO_MS = 60_000L;
 
     private final JavaPlugin plugin;
-    private final IAuditoria auditoria;
-    private final MarketRepository repositorio;
+    private final MarketRepository repo;
+    private final IAuditoria audit;
     private final Logger log;
     private final int maxComprasPorMinuto;
-    private final Map<String, MarketCategory> categorias = new LinkedHashMap<>();
-    private final Map<UUID, Deque<Long>> ventanas = new ConcurrentHashMap<>();
-    private String titulo = "&8&lMercado de Mushoku";
 
-    public MarketService(JavaPlugin plugin, MarketRepository repositorio, IAuditoria auditoria,
-                         Logger log, int maxComprasPorMinuto) {
+    private final Map<UUID, Deque<Long>> comprasRecientes = new ConcurrentHashMap<>();
+
+    private volatile String titulo = "&8&lMercado de Mushoku";
+    private volatile Map<String, MarketCategory> categorias = new LinkedHashMap<>();
+    private volatile Map<String, MarketItem> indice = new LinkedHashMap<>();
+
+    public MarketService(JavaPlugin plugin, MarketRepository repo, IAuditoria audit, Logger log,
+                         int maxComprasPorMinuto) {
         this.plugin = plugin;
-        this.repositorio = repositorio;
-        this.auditoria = auditoria;
+        this.repo = repo;
+        this.audit = audit;
         this.log = log;
         this.maxComprasPorMinuto = Math.max(1, maxComprasPorMinuto);
     }
 
-    // ------------------------------------------------------------------ catalogo
+    /** Carga o recarga {@code market.yml} desde el data folder del plugin. */
+    public synchronized void recargar() {
+        File archivo = new File(plugin.getDataFolder(), "market.yml");
+        if (!archivo.isFile()) {
+            copiarDefault(archivo);
+        }
+        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(archivo);
+        aplicar(yaml);
+    }
 
-    /**
-     * Carga {@code market.yml} desde el data folder y cae al recurso del JAR.
-     * @return cantidad de items cargados
-     */
-    public int cargarCatalogo() {
-        YamlConfiguration yaml = leerYaml();
-        categorias.clear();
-        if (yaml == null) {
-            log.warning("market.yml no encontrado (ni en el data folder ni en el JAR). "
-                    + "El modulo 'market' queda sin ofertas.");
-            return 0;
+    private void copiarDefault(File destino) {
+        try (InputStream origen = plugin.getResource("market.yml")) {
+            if (origen == null) {
+                log.warning("market.yml no existe en el jar ni en disco; el mercado quedara vacio.");
+                return;
+            }
+            if (!destino.getParentFile().exists() && !destino.getParentFile().mkdirs()) {
+                log.warning("No se pudo crear la carpeta de datos para market.yml.");
+            }
+            java.nio.file.Files.copy(origen, destino.toPath());
+        } catch (Exception ex) {
+            log.log(Level.WARNING, "No se pudo copiar el market.yml por defecto.", ex);
         }
-        String tituloYaml = yaml.getString("titulo");
-        if (tituloYaml != null && !tituloYaml.isBlank()) {
-            titulo = tituloYaml;
+    }
+
+    private void aplicar(YamlConfiguration yaml) {
+        titulo = yaml.getString("titulo", "&8&lMercado de Mushoku");
+        Map<String, MarketCategory> nuevasCategorias = new LinkedHashMap<>();
+        Map<String, MarketItem> nuevoIndice = new LinkedHashMap<>();
+
+        ConfigurationSection raizCategorias = yaml.getConfigurationSection("categories");
+        if (raizCategorias == null) {
+            this.categorias = nuevasCategorias;
+            this.indice = nuevoIndice;
+            return;
         }
-        ConfigurationSection seccion = yaml.getConfigurationSection("categories");
+
+        for (String idCategoria : raizCategorias.getKeys(false)) {
+            ConfigurationSection secCat = raizCategorias.getConfigurationSection(idCategoria);
+            if (secCat == null) {
+                continue;
+            }
+            String tituloCat = secCat.getString("title", "&f" + idCategoria);
+            Material icono = parsearMaterial(secCat.getString("icon", "CHEST"));
+            int slot = secCat.getInt("slot", -1);
+            List<MarketItem> items = cargarItems(secCat.getConfigurationSection("items"), idCategoria);
+
+            MarketCategory categoria = new MarketCategory(idCategoria, tituloCat, icono, slot, items);
+            nuevasCategorias.put(idCategoria.toLowerCase(Locale.ROOT), categoria);
+            for (MarketItem item : items) {
+                nuevoIndice.put(item.id().toLowerCase(Locale.ROOT), item);
+            }
+        }
+
+        this.categorias = nuevasCategorias;
+        this.indice = nuevoIndice;
+    }
+
+    private List<MarketItem> cargarItems(ConfigurationSection seccion, String idCategoria) {
+        List<MarketItem> resultado = new ArrayList<>();
         if (seccion == null) {
-            log.warning("market.yml no tiene la seccion 'categories'.");
-            return 0;
+            return resultado;
         }
-
-        List<Integer> usados = new ArrayList<>();
-        int items = 0;
-        int siguienteSlot = 10;
-        for (String id : seccion.getKeys(false)) {
-            ConfigurationSection cruda = seccion.getConfigurationSection(id);
-            if (cruda == null) {
+        for (String idItem : seccion.getKeys(false)) {
+            ConfigurationSection sec = seccion.getConfigurationSection(idItem);
+            if (sec == null) {
                 continue;
             }
-            String tituloCategoria = cruda.getString("title", id);
-            Material icono = material(cruda.getString("icon", "CHEST"));
-            if (icono == null || !icono.isItem()) {
-                icono = Material.CHEST;
+            MarketItem item = construirItem(idItem, sec, idCategoria);
+            if (item != null && item.valido()) {
+                resultado.add(item);
+            } else {
+                log.warning("Oferta invalida omitida en market.yml: " + idCategoria + "." + idItem);
             }
-            int slot = cruda.getInt("slot", siguienteSlot);
-            if (slot < 0 || slot > 26 || usados.contains(slot)) {
-                slot = siguienteSlot;
-                while (usados.contains(slot) && slot <= 26) {
-                    slot++;
-                }
-                if (slot > 26) {
-                    log.warning("market.yml: no quedan slots libres para la categoria '" + id + "'.");
-                    continue;
-                }
-            }
-            usados.add(slot);
-            siguienteSlot = slot + 1;
-
-            List<MarketItem> ofertas = new ArrayList<>();
-            ConfigurationSection itemsYaml = cruda.getConfigurationSection("items");
-            if (itemsYaml != null) {
-                for (String itemId : itemsYaml.getKeys(false)) {
-                    ConfigurationSection itemYaml = itemsYaml.getConfigurationSection(itemId);
-                    if (itemYaml == null) {
-                        continue;
-                    }
-                    MarketItem item = parsearItem(id, itemId, itemYaml);
-                    if (item == null) {
-                        continue;
-                    }
-                    ofertas.add(item);
-                    items++;
-                }
-            }
-            if (ofertas.isEmpty()) {
-                log.warning("market.yml: la categoria '" + id + "' no tiene items validos; se omite.");
-                continue;
-            }
-            categorias.put(id.toLowerCase(Locale.ROOT),
-                    new MarketCategory(id.toLowerCase(Locale.ROOT), tituloCategoria, icono, slot, ofertas));
         }
-        if (categorias.isEmpty()) {
-            log.warning("market.yml no dejo ninguna categoria valida. Revisar materiales y precios.");
-        }
-        return items;
+        return resultado;
     }
 
-    private MarketItem parsearItem(String categoriaId, String itemId, ConfigurationSection yaml) {
-        Material material = material(yaml.getString("material", null));
-        if (material == null || !material.isItem()) {
-            log.warning("market.yml: " + categoriaId + "." + itemId + " tiene un material invalido ("
-                    + yaml.getString("material") + "); se omite.");
+    private MarketItem construirItem(String idItem, ConfigurationSection sec, String idCategoria) {
+        String materialNombre = sec.getString("material", "");
+        Material material = parsearMaterial(materialNombre);
+        int amount = sec.getInt("amount", 0);
+        int precio = sec.getInt("price-diamonds", sec.getInt("price", 0));
+        String nombre = sec.getString("name", null);
+        List<String> lore = sec.getStringList("lore");
+        Set<String> biomes = parsearBiomas(sec);
+        MarketRotation rotation = parsearRotacion(sec, idItem);
+        if (material == null) {
+            log.warning("Material desconocido '" + materialNombre + "' en " + idCategoria + "." + idItem);
             return null;
         }
-        int amount = yaml.getInt("amount", 1);
-        int precio = yaml.getInt("price-diamonds", 0);
-        MarketItem item = new MarketItem(itemId.toLowerCase(Locale.ROOT), material, amount, precio,
-                yaml.getString("name"), yaml.getStringList("lore"));
-        if (!item.valido()) {
-            log.warning("market.yml: " + categoriaId + "." + itemId
-                    + " necesita 1 <= amount <= " + Math.max(1, material.getMaxStackSize())
-                    + " y price-diamonds > 0; se omite.");
-            return null;
-        }
-        return item;
+        return new MarketItem(idItem, material, amount, precio, nombre, lore, biomes, rotation);
     }
 
-    private YamlConfiguration leerYaml() {
-        File editable = new File(plugin.getDataFolder(), "market.yml");
-        if (editable.exists()) {
-            return YamlConfiguration.loadConfiguration(editable);
+    private Set<String> parsearBiomas(ConfigurationSection sec) {
+        List<String> lista = new ArrayList<>();
+        if (sec.isList("biomes")) {
+            lista.addAll(sec.getStringList("biomes"));
+        } else if (sec.isString("biomes")) {
+            String raw = sec.getString("biomes", "");
+            if (!raw.isBlank()) {
+                for (String parte : raw.split("[,;]")) {
+                    String t = parte.trim();
+                    if (!t.isEmpty()) {
+                        lista.add(t);
+                    }
+                }
+            }
+        } else if (sec.isString("biome")) {
+            String raw = sec.getString("biome", "");
+            if (!raw.isBlank()) {
+                lista.add(raw.trim());
+            }
         }
-        try (InputStream recurso = plugin.getResource("market.yml")) {
-            if (recurso == null) {
+        if (lista.isEmpty()) {
+            return Set.of();
+        }
+        Set<String> out = new LinkedHashSet<>();
+        for (String b : lista) {
+            if (b != null && !b.isBlank()) {
+                out.add(normalizarClave(b));
+            }
+        }
+        return out.isEmpty() ? Set.of() : Set.copyOf(out);
+    }
+
+    private MarketRotation parsearRotacion(ConfigurationSection sec, String itemId) {
+        ConfigurationSection rot = sec.getConfigurationSection("rotation");
+        if (rot == null) {
+            // soporte compacto: rotation: daily / weekly
+            String simple = sec.getString("rotation", null);
+            if (simple == null || simple.isBlank()) {
                 return null;
             }
-            return YamlConfiguration.loadConfiguration(
-                    new InputStreamReader(recurso, StandardCharsets.UTF_8));
-        } catch (Exception excepcion) {
-            log.log(Level.SEVERE, "No se pudo leer market.yml del JAR.", excepcion);
-            return null;
+            MarketRotation.Period p = MarketRotation.Period.from(simple);
+            return new MarketRotation(p, 1, 0);
         }
+        MarketRotation.Period period = MarketRotation.Period.from(rot.getString("period", "daily"));
+        int every = Math.max(1, rot.getInt("every", rot.getInt("cada", 1)));
+        int offset;
+        if (rot.contains("offset")) {
+            offset = rot.getInt("offset");
+        } else {
+            offset = MarketRotation.offsetEstable(itemId, every);
+        }
+        return new MarketRotation(period, every, offset);
     }
 
-    private static Material material(String nombre) {
+    private Material parsearMaterial(String nombre) {
         if (nombre == null || nombre.isBlank()) {
             return null;
         }
-        return Material.matchMaterial(nombre.trim().toUpperCase(Locale.ROOT));
+        Material material = Material.matchMaterial(nombre.trim());
+        if (material == null) {
+            material = Material.matchMaterial(nombre.trim().toUpperCase(Locale.ROOT));
+        }
+        return material;
     }
 
-    // ------------------------------------------------------------------ consulta
+    private static String normalizarClave(String raw) {
+        return raw.trim().toLowerCase(Locale.ROOT).replace(' ', '_');
+    }
 
     public String titulo() {
         return titulo;
     }
 
     public Collection<MarketCategory> categorias() {
-        return List.copyOf(categorias.values());
+        return categorias.values();
     }
 
     public MarketCategory categoria(String id) {
-        return id == null ? null : categorias.get(id.toLowerCase(Locale.ROOT));
-    }
-
-    public MarketCategory categoriaPorSlot(int slot) {
-        for (MarketCategory categoria : categorias.values()) {
-            if (categoria.slot() == slot) {
-                return categoria;
-            }
-        }
-        return null;
-    }
-
-    public MarketItem itemPorSlot(String categoriaId, int slot) {
-        MarketCategory categoria = categoria(categoriaId);
-        if (categoria == null || slot < 0 || slot >= categoria.items().size()) {
+        if (id == null) {
             return null;
         }
-        return categoria.items().get(slot);
+        return categorias.get(id.toLowerCase(Locale.ROOT));
     }
 
-    public MarketItem buscarItem(String itemId) {
-        for (MarketCategory categoria : categorias.values()) {
-            MarketItem item = categoria.item(itemId);
-            if (item != null) {
-                return item;
+    public MarketItem item(String itemId) {
+        if (itemId == null) {
+            return null;
+        }
+        return indice.get(itemId.toLowerCase(Locale.ROOT));
+    }
+
+    /** Indica si una oferta esta disponible para el jugador (bioma y rotacion). */
+    public boolean disponible(MarketItem item, Player jugador) {
+        if (item == null || jugador == null) {
+            return false;
+        }
+        if (item.tieneRotacion() && !item.rotation().estaActiva(item.id(), System.currentTimeMillis())) {
+            return false;
+        }
+        if (item.tieneFiltroBioma()) {
+            String actual = biomeActual(jugador);
+            return actual != null && item.biomes().contains(actual);
+        }
+        return true;
+    }
+
+    /** Bioma actual del jugador, normalizado (lowercase). */
+    public String biomeActual(Player jugador) {
+        if (jugador == null || jugador.getLocation() == null || jugador.getLocation().getWorld() == null) {
+            return null;
+        }
+        try {
+            Biome biome = jugador.getLocation().getBlock().getBiome();
+            // Paper/modern: getKey() existe; fallback a name()
+            try {
+                var key = biome.getKey();
+                if (key != null) {
+                    return key.getKey().toLowerCase(Locale.ROOT);
+                }
+            } catch (Throwable ignored) {
+                // API antigua sin NamespacedKey#getKey en este contexto
+            }
+            return biome.name().toLowerCase(Locale.ROOT);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    /** Items de una categoria visibles/disponibles para el jugador. */
+    public List<MarketItem> itemsDisponibles(MarketCategory categoria, Player jugador) {
+        if (categoria == null) {
+            return List.of();
+        }
+        List<MarketItem> resultado = new ArrayList<>();
+        for (MarketItem item : categoria.items()) {
+            if (disponible(item, jugador)) {
+                resultado.add(item);
             }
         }
-        return null;
+        return resultado;
     }
 
-    public boolean sinOfertas() {
-        return categorias.isEmpty();
+    /** Categorias que tienen al menos un item disponible para el jugador. */
+    public List<MarketCategory> categoriasDisponibles(Player jugador) {
+        List<MarketCategory> resultado = new ArrayList<>();
+        for (MarketCategory cat : categorias.values()) {
+            if (!itemsDisponibles(cat, jugador).isEmpty()) {
+                resultado.add(cat);
+            }
+        }
+        return resultado;
     }
 
-    // ------------------------------------------------------------------ compra
+    public boolean estaVacio() {
+        return indice.isEmpty();
+    }
 
     /**
-     * Ejecuta la compra en el hilo principal: cuenta y quita diamantes, entrega el item y
-     * registra la operacion. Si no hay espacio, devuelve los diamantes antes de salir.
+     * Ejecuta la compra en el hilo principal (toca inventario Bukkit). Registra la compra
+     * y el evento de auditoria de forma asincrona.
      */
-    public ResultadoCompra comprar(Player jugador, MarketItem item) {
+    public ResultadoCompra comprar(Player jugador, String itemId) {
+        MarketItem item = item(itemId);
         if (item == null || !item.valido()) {
-            return ResultadoCompra.ITEM_DESCONOCIDO;
+            return ResultadoCompra.INVALIDO;
         }
-        if (!dentroDelLimite(jugador.getUniqueId())) {
+        if (!disponible(item, jugador)) {
+            return ResultadoCompra.NO_DISPONIBLE;
+        }
+        if (!puedeComprar(jugador.getUniqueId())) {
             return ResultadoCompra.LIMITE;
         }
-        int tiene = InventarioUtil.contar(jugador, Material.DIAMOND);
-        if (tiene < item.priceDiamonds()) {
+        if (InventarioUtil.contar(jugador, Material.DIAMOND) < item.priceDiamonds()) {
             return ResultadoCompra.SIN_DIAMANTES;
         }
+        if (!InventarioUtil.cabe(jugador, item.material(), item.amount())) {
+            return ResultadoCompra.SIN_ESPACIO;
+        }
+
         if (!InventarioUtil.quitar(jugador, Material.DIAMOND, item.priceDiamonds())) {
             return ResultadoCompra.SIN_DIAMANTES;
         }
-
-        ItemStack entrega = new ItemStack(item.material(), item.amount());
-        if (!InventarioUtil.puedeEntregar(jugador.getInventory(), entrega)) {
-            InventarioUtil.entregar(jugador, new ItemStack(Material.DIAMOND, item.priceDiamonds()));
+        Map<Integer, ItemStack> sobrante = jugador.getInventory()
+                .addItem(new ItemStack(item.material(), item.amount()));
+        if (!sobrante.isEmpty()) {
+            // No deberia pasar tras la comprobacion de espacio, pero devolvemos los diamantes.
+            for (ItemStack resto : sobrante.values()) {
+                int devuelto = item.amount() - resto.getAmount();
+                if (devuelto > 0) {
+                    InventarioUtil.quitar(jugador, item.material(), devuelto);
+                }
+            }
+            jugador.getInventory().addItem(new ItemStack(Material.DIAMOND, item.priceDiamonds()));
             return ResultadoCompra.SIN_ESPACIO;
         }
-        InventarioUtil.entregar(jugador, entrega);
-        anotarCompra(jugador.getUniqueId());
-        repositorio.registrar(jugador.getUniqueId(), item.id(), item.amount(),
-                item.priceDiamonds(), TimeUtils.ahoraIso())
-                .exceptionally(error -> {
-                    log.log(Level.WARNING, "No se pudo registrar la compra de '" + item.id()
-                            + "' de " + jugador.getName(), error);
+
+        registrarCompra(jugador.getUniqueId());
+        String ahora = TimeUtils.ahoraIso();
+        repo.registrar(jugador.getUniqueId(), item.id(), item.amount(), item.priceDiamonds(), ahora)
+                .exceptionally(ex -> {
+                    log.log(Level.WARNING, "No se pudo registrar la compra en market_purchases.", ex);
                     return null;
                 });
-        try {
-            auditoria.registrar(jugador.getUniqueId(), "mercado.compra", "item=" + item.id(),
-                    "cantidad=" + item.amount() + " diamantes=" + item.priceDiamonds());
-        } catch (RuntimeException sinAuditoria) {
-            log.fine("Auditoria no disponible en compra de mercado: " + sinAuditoria.getMessage());
-        }
+        audit.registrar(jugador.getUniqueId(), "MARKET_BUY", null,
+                "item=" + item.id() + " amount=" + item.amount() + " price=" + item.priceDiamonds());
         return ResultadoCompra.OK;
     }
 
-    private boolean dentroDelLimite(UUID jugador) {
-        Deque<Long> ventana = ventanas.computeIfAbsent(jugador, clave -> new ArrayDeque<>());
-        synchronized (ventana) {
-            limpiar(ventana);
-            return ventana.size() < maxComprasPorMinuto;
+    private boolean puedeComprar(UUID uuid) {
+        if (maxComprasPorMinuto <= 0) {
+            return true;
         }
-    }
-
-    private void anotarCompra(UUID jugador) {
-        Deque<Long> ventana = ventanas.computeIfAbsent(jugador, clave -> new ArrayDeque<>());
-        synchronized (ventana) {
-            limpiar(ventana);
-            ventana.addLast(System.currentTimeMillis());
-        }
-    }
-
-    private static void limpiar(Deque<Long> ventana) {
         long ahora = System.currentTimeMillis();
-        while (!ventana.isEmpty() && ahora - ventana.peekFirst() > VENTANA_MS) {
-            ventana.pollFirst();
+        Deque<Long> cola = comprasRecientes.computeIfAbsent(uuid, k -> new ArrayDeque<>());
+        synchronized (cola) {
+            while (!cola.isEmpty() && ahora - cola.peekFirst() > UN_MINUTO_MS) {
+                cola.pollFirst();
+            }
+            return cola.size() < maxComprasPorMinuto;
         }
+    }
+
+    private void registrarCompra(UUID uuid) {
+        if (maxComprasPorMinuto <= 0) {
+            return;
+        }
+        long ahora = System.currentTimeMillis();
+        Deque<Long> cola = comprasRecientes.computeIfAbsent(uuid, k -> new ArrayDeque<>());
+        synchronized (cola) {
+            while (!cola.isEmpty() && ahora - cola.peekFirst() > UN_MINUTO_MS) {
+                cola.pollFirst();
+            }
+            cola.addLast(ahora);
+        }
+    }
+
+    /** Cantidad de compras en el ultimo minuto (para mostrar en /mercado info). */
+    public int comprasRecientes(UUID uuid) {
+        Deque<Long> cola = comprasRecientes.get(uuid);
+        if (cola == null) {
+            return 0;
+        }
+        long ahora = System.currentTimeMillis();
+        synchronized (cola) {
+            while (!cola.isEmpty() && ahora - cola.peekFirst() > UN_MINUTO_MS) {
+                cola.pollFirst();
+            }
+            return cola.size();
+        }
+    }
+
+    public int limitePorMinuto() {
+        return maxComprasPorMinuto;
+    }
+
+    /** Carga inicial (llamar en onEnable). */
+    public void cargarInicial() {
+        recargar();
+        // asegurar carpeta de datos (para que market.yml quede visible)
+        if (!plugin.getDataFolder().exists()) {
+            //noinspection ResultOfMethodCallIgnored
+            plugin.getDataFolder().mkdirs();
+        }
+    }
+
+    // compat: algunos call sites pueden pasar input stream en el futuro; no usado ahora.
+    @SuppressWarnings("unused")
+    private YamlConfiguration leer(InputStream in) {
+        return YamlConfiguration.loadConfiguration(new InputStreamReader(in, StandardCharsets.UTF_8));
     }
 }

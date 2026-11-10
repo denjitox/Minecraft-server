@@ -6,7 +6,9 @@ import ar.com.maydana.mushokucore.util.Componentes;
 import ar.com.maydana.mushokucore.util.InventarioUtil;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -18,6 +20,9 @@ import org.bukkit.inventory.meta.ItemMeta;
  * Arma y maneja las dos pantallas del mercado: menu de categorias y lista de ofertas.
  * Todos los clicks sobre el inventario del mercado se cancelan en {@link MarketListener};
  * aca solo se decide que hacer con el slot.
+ *
+ * <p>Las ofertas se filtran por disponibilidad (bioma/rotacion) para el jugador que abre
+ * la GUI; el click de compra vuelve a validar por si cambio de bioma o de periodo.</p>
  */
 public final class MarketGui {
 
@@ -44,142 +49,202 @@ public final class MarketGui {
 
         ItemStack info = new ItemStack(Material.DIAMOND);
         ItemMeta metaInfo = info.getItemMeta();
-        metaInfo.displayName(Componentes.de("&bDiamantes en inventario"));
-        metaInfo.lore(Componentes.lista(List.of(
-                "&7El mercado cobra diamantes fisicos.",
-                "&7Tenés: &f" + InventarioUtil.contar(jugador, Material.DIAMOND))));
-        info.setItemMeta(metaInfo);
+        if (metaInfo != null) {
+            metaInfo.displayName(Componentes.de("&b&lTus diamantes: &f" + InventarioUtil.contar(jugador, Material.DIAMOND)));
+            metaInfo.lore(List.of(
+                    Componentes.de("&7Bioma: &f" + nombreBioma(servicio.biomeActual(jugador))),
+                    Componentes.de("&7Las ofertas dependen de tu bioma y de la rotacion.")));
+            info.setItemMeta(metaInfo);
+        }
         inventario.setItem(4, info);
 
-        for (MarketCategory categoria : servicio.categorias()) {
-            inventario.setItem(categoria.slot(), icono(categoria));
+        for (MarketCategory categoria : servicio.categoriasDisponibles(jugador)) {
+            int slot = Math.max(0, Math.min(TAM_PRINCIPAL - 1, categoria.slot()));
+            if (slot == 4 || slot == SLOT_CERRAR) {
+                slot = (slot + 1) % TAM_PRINCIPAL;
+            }
+            ItemStack icono = new ItemStack(categoria.icono() == null ? Material.CHEST : categoria.icono());
+            ItemMeta meta = icono.getItemMeta();
+            if (meta != null) {
+                meta.displayName(Componentes.de(categoria.titulo()));
+                int disp = servicio.itemsDisponibles(categoria, jugador).size();
+                List<net.kyori.adventure.text.Component> lore = new ArrayList<>();
+                lore.add(Componentes.de("&7" + disp + " oferta(s) disponible(s) aqui"));
+                lore.add(Componentes.de("&eClick para abrir"));
+                meta.lore(lore);
+                icono.setItemMeta(meta);
+            }
+            inventario.setItem(slot, icono);
         }
 
-        ItemStack cerrar = new ItemStack(Material.BARRIER);
-        ItemMeta metaCerrar = cerrar.getItemMeta();
-        metaCerrar.displayName(Componentes.de("&cCerrar"));
-        cerrar.setItemMeta(metaCerrar);
+        ItemStack cerrar = boton(Material.BARRIER, "&cCerrar");
         inventario.setItem(SLOT_CERRAR, cerrar);
 
         jugador.openInventory(inventario);
     }
 
-    public void abrirCategoria(Player jugador, MarketCategory categoria) {
+    public void abrirCategoria(Player jugador, String categoriaId) {
+        MarketCategory categoria = servicio.categoria(categoriaId);
+        if (categoria == null) {
+            Textos.msg(ctx, jugador, "mercado.categoria-invalida", Map.of("categoria", String.valueOf(categoriaId)));
+            return;
+        }
+        List<MarketItem> disponibles = servicio.itemsDisponibles(categoria, jugador);
         MarketHolder holder = new MarketHolder(categoria.id());
         Inventory inventario = Bukkit.createInventory(holder, TAM_CATEGORIA,
                 Componentes.de(categoria.titulo()));
         holder.enlazar(inventario);
         rellenar(inventario);
 
-        int diamantes = InventarioUtil.contar(jugador, Material.DIAMOND);
-        List<MarketItem> ofertas = categoria.items();
-        int limite = Math.min(ofertas.size(), MAX_OFERTAS);
-        for (int indice = 0; indice < limite; indice++) {
-            inventario.setItem(indice, mostrar(ofertas.get(indice), diamantes));
+        int slot = 0;
+        for (MarketItem item : disponibles) {
+            if (slot >= MAX_OFERTAS) {
+                break;
+            }
+            inventario.setItem(slot++, iconoItem(item, jugador));
         }
-        if (ofertas.size() > MAX_OFERTAS) {
-            ctx.plugin().getLogger().warning("market.yml: la categoria '" + categoria.id()
-                    + "' tiene " + ofertas.size() + " items y solo se muestran " + MAX_OFERTAS
-                    + ". Dividila en mas categorias.");
+        if (disponibles.isEmpty()) {
+            ItemStack vacio = boton(Material.PAPER, "&7Sin ofertas disponibles ahora");
+            ItemMeta mv = vacio.getItemMeta();
+            if (mv != null) {
+                mv.lore(List.of(
+                        Componentes.de("&7Cambia de bioma o espera la rotacion."),
+                        Componentes.de("&7Bioma actual: &f" + nombreBioma(servicio.biomeActual(jugador)))));
+                vacio.setItemMeta(mv);
+            }
+            inventario.setItem(22, vacio);
         }
 
-        ItemStack volver = new ItemStack(Material.ARROW);
-        ItemMeta metaVolver = volver.getItemMeta();
-        metaVolver.displayName(Componentes.de("&eVolver al mercado"));
-        volver.setItemMeta(metaVolver);
-        inventario.setItem(SLOT_VOLVER, volver);
-
+        inventario.setItem(SLOT_VOLVER, boton(Material.ARROW, "&eVolver"));
+        inventario.setItem(53, boton(Material.BARRIER, "&cCerrar"));
         jugador.openInventory(inventario);
     }
 
-    /** Procesa un click sobre el inventario superior del mercado. */
-    public void manejarClick(Player jugador, Inventory superior, int slot) {
-        if (!(superior.getHolder() instanceof MarketHolder holder)) {
+    private ItemStack iconoItem(MarketItem item, Player jugador) {
+        ItemStack stack = new ItemStack(item.material());
+        ItemMeta meta = stack.getItemMeta();
+        if (meta != null) {
+            meta.displayName(Componentes.de(item.nombreVisible()));
+            List<net.kyori.adventure.text.Component> lore = new ArrayList<>();
+            lore.add(Componentes.de("&7Cantidad: &f" + item.amount()));
+            lore.add(Componentes.de("&7Precio: &b" + item.priceDiamonds() + " diamante(s)"));
+            lore.add(Componentes.de("&7ID: &8" + item.id()));
+            if (item.tieneFiltroBioma()) {
+                String bs = item.biomes().stream().map(this::nombreBioma).collect(Collectors.joining(", "));
+                lore.add(Componentes.de("&7Biomas: &d" + bs));
+            }
+            if (item.tieneRotacion()) {
+                MarketRotation r = item.rotation();
+                String periodo = r.period() == MarketRotation.Period.WEEKLY ? "semanal" : "diaria";
+                if (r.every() <= 1) {
+                    lore.add(Componentes.de("&7Rotacion: &asiempre"));
+                } else {
+                    lore.add(Componentes.de("&7Rotacion: &a" + periodo + " (1 de cada " + r.every() + ")"));
+                }
+            }
+            lore.add(Componentes.de(""));
+            lore.add(Componentes.de("&eClick para comprar"));
+            if (item.lore() != null && !item.lore().isEmpty()) {
+                lore.add(Componentes.de("&8---"));
+                for (String linea : item.lore()) {
+                    lore.add(Componentes.de(linea));
+                }
+            }
+            meta.lore(lore);
+            stack.setItemMeta(meta);
+        }
+        return stack;
+    }
+
+    public void manejarClick(Player jugador, Inventory inventario, int slot) {
+        if (!(inventario.getHolder() instanceof MarketHolder holder)) {
             return;
         }
         if (holder.esPrincipal()) {
-            MarketCategory categoria = servicio.categoriaPorSlot(slot);
-            if (categoria != null) {
-                abrirCategoria(jugador, categoria);
-            } else if (slot == SLOT_CERRAR) {
+            if (slot == SLOT_CERRAR) {
                 jugador.closeInventory();
+                return;
+            }
+            // Buscar categoria por slot visible
+            for (MarketCategory categoria : servicio.categoriasDisponibles(jugador)) {
+                int s = Math.max(0, Math.min(TAM_PRINCIPAL - 1, categoria.slot()));
+                if (s == 4 || s == SLOT_CERRAR) {
+                    s = (s + 1) % TAM_PRINCIPAL;
+                }
+                if (s == slot) {
+                    abrirCategoria(jugador, categoria.id());
+                    return;
+                }
             }
             return;
         }
+
         if (slot == SLOT_VOLVER) {
             abrirPrincipal(jugador);
             return;
         }
-        MarketItem item = servicio.itemPorSlot(holder.categoryId(), slot);
-        if (item == null) {
+        if (slot == 53) {
+            jugador.closeInventory();
             return;
         }
-        MarketService.ResultadoCompra resultado = servicio.comprar(jugador, item);
+        if (slot < 0 || slot >= MAX_OFERTAS) {
+            return;
+        }
+        MarketCategory categoria = servicio.categoria(holder.categoryId());
+        if (categoria == null) {
+            return;
+        }
+        List<MarketItem> disponibles = servicio.itemsDisponibles(categoria, jugador);
+        if (slot >= disponibles.size()) {
+            return;
+        }
+        MarketItem item = disponibles.get(slot);
+        MarketService.ResultadoCompra resultado = servicio.comprar(jugador, item.id());
         if (resultado == MarketService.ResultadoCompra.OK) {
             avisar(jugador, resultado.claveMensaje(), Map.of(
-                    "cantidad", String.valueOf(item.amount()),
                     "item", item.nombreVisible(),
+                    "cantidad", String.valueOf(item.amount()),
                     "precio", String.valueOf(item.priceDiamonds())));
-            MarketCategory categoria = servicio.categoria(holder.categoryId());
-            if (categoria != null) {
-                abrirCategoria(jugador, categoria);
-            }
-            return;
-        }
-        avisar(jugador, resultado.claveMensaje(), Map.of(
-                "precio", String.valueOf(item.priceDiamonds()),
-                "tienes", String.valueOf(InventarioUtil.contar(jugador, Material.DIAMOND))));
-    }
-
-    // ------------------------------------------------------------------ helpers
-
-    private static ItemStack icono(MarketCategory categoria) {
-        ItemStack item = new ItemStack(categoria.icono());
-        ItemMeta meta = item.getItemMeta();
-        meta.displayName(Componentes.de(categoria.titulo()));
-        List<String> lore = new ArrayList<>();
-        lore.add("&7Ofertas: &f" + categoria.items().size());
-        lore.add("&aClick para abrir");
-        meta.lore(Componentes.lista(lore));
-        item.setItemMeta(meta);
-        return item;
-    }
-
-    private static ItemStack mostrar(MarketItem oferta, int diamantes) {
-        int visible = Math.max(1, Math.min(oferta.amount(), oferta.material().getMaxStackSize()));
-        ItemStack item = new ItemStack(oferta.material(), visible);
-        ItemMeta meta = item.getItemMeta();
-        meta.displayName(Componentes.de(oferta.nombreVisible()));
-
-        List<String> lore = new ArrayList<>(oferta.lore());
-        if (!lore.isEmpty()) {
-            lore.add("");
-        }
-        lore.add("&7Recibís: &f" + oferta.amount());
-        lore.add("&7Precio: &b" + oferta.priceDiamonds() + " diamantes");
-        if (diamantes >= oferta.priceDiamonds()) {
-            lore.add("&aClick para comprar");
+            abrirCategoria(jugador, categoria.id()); // refresca diamantes y disponibilidad
         } else {
-            lore.add("&cTe faltan " + (oferta.priceDiamonds() - diamantes) + " diamantes");
+            avisar(jugador, resultado.claveMensaje(), Map.of(
+                    "item", item.nombreVisible(),
+                    "precio", String.valueOf(item.priceDiamonds()),
+                    "bioma", nombreBioma(servicio.biomeActual(jugador))));
         }
-        meta.lore(Componentes.lista(lore));
-        item.setItemMeta(meta);
+    }
+
+    private void avisar(Player jugador, String clave, Map<String, String> vars) {
+        Textos.msg(ctx, jugador, clave, vars);
+    }
+
+    private void rellenar(Inventory inventario) {
+        ItemStack filler = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
+        ItemMeta meta = filler.getItemMeta();
+        if (meta != null) {
+            meta.displayName(Componentes.de(" "));
+            filler.setItemMeta(meta);
+        }
+        for (int i = 0; i < inventario.getSize(); i++) {
+            inventario.setItem(i, filler);
+        }
+    }
+
+    private ItemStack boton(Material material, String nombre) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.displayName(Componentes.de(nombre));
+            item.setItemMeta(meta);
+        }
         return item;
     }
 
-    private static void rellenar(Inventory inventario) {
-        ItemStack relleno = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
-        ItemMeta meta = relleno.getItemMeta();
-        meta.displayName(Componentes.de(" "));
-        relleno.setItemMeta(meta);
-        for (int indice = 0; indice < inventario.getSize(); indice++) {
-            if (inventario.getItem(indice) == null) {
-                inventario.setItem(indice, relleno);
-            }
+    private String nombreBioma(String clave) {
+        if (clave == null || clave.isBlank()) {
+            return "desconocido";
         }
-    }
-
-    private void avisar(Player jugador, String clave, Map<String, String> reemplazos) {
-        Textos.enviar(jugador, Textos.prefijo(ctx) + Textos.msg(ctx, clave, reemplazos));
+        String base = clave.toLowerCase(Locale.ROOT).replace('_', ' ');
+        return Character.toUpperCase(base.charAt(0)) + base.substring(1);
     }
 }

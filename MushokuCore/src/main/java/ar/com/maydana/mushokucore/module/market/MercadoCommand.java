@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -19,10 +20,10 @@ import org.bukkit.entity.Player;
  * desde consola con un jugador como objetivo).
  *
  * <pre>
- *   /mercado                       abre el menu
+ *   /mercado                       abre el menu (filtrado por bioma/rotacion)
  *   /mercado &lt;categoria&gt;           abre una categoria
- *   /mercado comprar &lt;item&gt;        compra directa
- *   /mercado lista                 lista categorias e items
+ *   /mercado comprar &lt;item&gt;        compra directa (si esta disponible)
+ *   /mercado lista [categoria]     lista categorias/ofertas disponibles
  *   /mercado recargar              relee market.yml (admin)
  * </pre>
  */
@@ -43,17 +44,13 @@ public final class MercadoCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(CommandSender emisor, Command comando, String etiqueta, String[] args) {
-        if (!emisor.hasPermission(PERMISO_USO)) {
-            avisar(emisor, "generic.no-permission", Map.of());
-            return true;
-        }
         if (args.length == 0) {
             if (!(emisor instanceof Player jugador)) {
-                avisar(emisor, "mercado.solo-jugadores", Map.of());
+                Textos.msg(ctx, emisor, "mercado.solo-jugador");
                 return true;
             }
-            if (servicio.sinOfertas()) {
-                avisar(emisor, "mercado.vacio", Map.of());
+            if (!tienePermiso(emisor, PERMISO_USO)) {
+                Textos.msg(ctx, emisor, "generic.no-permission");
                 return true;
             }
             gui.abrirPrincipal(jugador);
@@ -62,123 +59,180 @@ public final class MercadoCommand implements CommandExecutor, TabCompleter {
 
         String sub = args[0].toLowerCase(Locale.ROOT);
         switch (sub) {
-            case "recargar" -> {
-                if (!emisor.hasPermission(PERMISO_ADMIN)) {
-                    avisar(emisor, "generic.no-permission", Map.of());
+            case "comprar", "buy" -> {
+                if (!(emisor instanceof Player jugador)) {
+                    Textos.msg(ctx, emisor, "mercado.solo-jugador");
                     return true;
                 }
-                int items = servicio.cargarCatalogo();
-                avisar(emisor, "mercado.recargado", Map.of(
-                        "categorias", String.valueOf(servicio.categorias().size()),
-                        "items", String.valueOf(items)));
+                if (!tienePermiso(emisor, PERMISO_USO)) {
+                    Textos.msg(ctx, emisor, "generic.no-permission");
+                    return true;
+                }
+                if (args.length < 2) {
+                    Textos.msg(ctx, emisor, "mercado.uso-comprar");
+                    return true;
+                }
+                comprarDirecto(jugador, args[1]);
                 return true;
             }
-            case "lista" -> {
-                listar(emisor);
+            case "lista", "list" -> {
+                listar(emisor, args.length >= 2 ? args[1] : null);
                 return true;
             }
-            case "comprar" -> {
-                comprar(emisor, args);
+            case "recargar", "reload" -> {
+                if (!tienePermiso(emisor, PERMISO_ADMIN)) {
+                    Textos.msg(ctx, emisor, "generic.no-permission");
+                    return true;
+                }
+                servicio.recargar();
+                Textos.msg(ctx, emisor, "mercado.recargado",
+                        Map.of("categorias", String.valueOf(servicio.categorias().size())));
                 return true;
             }
             default -> {
                 if (!(emisor instanceof Player jugador)) {
-                    avisar(emisor, "mercado.solo-jugadores", Map.of());
+                    Textos.msg(ctx, emisor, "mercado.solo-jugador");
                     return true;
                 }
-                MarketCategory categoria = servicio.categoria(sub);
-                if (categoria == null) {
-                    avisar(emisor, "mercado.categoria-desconocida", Map.of("categoria", args[0]));
+                if (!tienePermiso(emisor, PERMISO_USO)) {
+                    Textos.msg(ctx, emisor, "generic.no-permission");
                     return true;
                 }
-                gui.abrirCategoria(jugador, categoria);
+                if (servicio.categoria(sub) != null) {
+                    gui.abrirCategoria(jugador, sub);
+                } else {
+                    Textos.msg(ctx, emisor, "mercado.uso");
+                }
                 return true;
             }
         }
     }
 
-    private void comprar(CommandSender emisor, String[] args) {
-        if (!(emisor instanceof Player jugador)) {
-            avisar(emisor, "mercado.solo-jugadores", Map.of());
-            return;
-        }
-        if (args.length < 2) {
-            avisar(emisor, "mercado.uso-comprar", Map.of());
-            return;
-        }
-        MarketItem item = servicio.buscarItem(args[1]);
+    private void comprarDirecto(Player jugador, String itemId) {
+        MarketItem item = servicio.item(itemId);
         if (item == null) {
-            avisar(emisor, "mercado.desconocido", Map.of());
+            Textos.msg(ctx, jugador, "mercado.item-invalido", Map.of("item", itemId));
             return;
         }
-        MarketService.ResultadoCompra resultado = servicio.comprar(jugador, item);
-        avisar(emisor, resultado.claveMensaje(), Map.of(
-                "cantidad", String.valueOf(item.amount()),
-                "item", item.nombreVisible(),
-                "precio", String.valueOf(item.priceDiamonds()),
-                "tienes", String.valueOf(InventarioUtil.contar(jugador, Material.DIAMOND))));
+        MarketService.ResultadoCompra resultado = servicio.comprar(jugador, itemId);
+        if (resultado == MarketService.ResultadoCompra.OK) {
+            Textos.msg(ctx, jugador, resultado.claveMensaje(), Map.of(
+                    "item", item.nombreVisible(),
+                    "cantidad", String.valueOf(item.amount()),
+                    "precio", String.valueOf(item.priceDiamonds())));
+        } else {
+            Textos.msg(ctx, jugador, resultado.claveMensaje(), Map.of(
+                    "item", item.nombreVisible(),
+                    "precio", String.valueOf(item.priceDiamonds()),
+                    "bioma", nombreBioma(servicio.biomeActual(jugador))));
+        }
     }
 
-    private void listar(CommandSender emisor) {
-        avisar(emisor, "mercado.lista-header", Map.of());
-        if (servicio.sinOfertas()) {
-            avisar(emisor, "mercado.vacio", Map.of());
-            return;
-        }
-        for (MarketCategory categoria : servicio.categorias()) {
-            avisar(emisor, "mercado.lista-categoria", Map.of(
-                    "categoria", categoria.titulo(),
-                    "items", String.valueOf(categoria.items().size())));
-            for (MarketItem item : categoria.items()) {
-                avisar(emisor, "mercado.lista-item", Map.of(
-                        "item", item.id(),
-                        "cantidad", String.valueOf(item.amount()),
-                        "precio", String.valueOf(item.priceDiamonds())));
+    private void listar(CommandSender emisor, String categoriaId) {
+        Player jugador = emisor instanceof Player p ? p : null;
+        if (categoriaId != null) {
+            MarketCategory cat = servicio.categoria(categoriaId);
+            if (cat == null) {
+                Textos.msg(ctx, emisor, "mercado.categoria-invalida", Map.of("categoria", categoriaId));
+                return;
             }
+            List<MarketItem> items = jugador != null ? servicio.itemsDisponibles(cat, jugador) : cat.items();
+            Textos.msg(ctx, emisor, "mercado.lista-categoria", Map.of(
+                    "categoria", cat.titulo(),
+                    "cantidad", String.valueOf(items.size())));
+            for (MarketItem item : items) {
+                String extra = sufijoDisponibilidad(item);
+                emisor.sendMessage(Textos.color("&7- &f" + item.id() + " &8(" + item.amount() + "x "
+                        + item.material().name().toLowerCase(Locale.ROOT) + " = &b" + item.priceDiamonds() + " diamante(s)&8)" + extra));
+            }
+            if (items.isEmpty()) {
+                emisor.sendMessage(Textos.color("&7  (sin ofertas disponibles ahora)"));
+            }
+            return;
+        }
+
+        Textos.msg(ctx, emisor, "mercado.lista", Map.of(
+                "categorias", String.valueOf(servicio.categorias().size())));
+        for (MarketCategory cat : servicio.categorias()) {
+            int n = jugador != null ? servicio.itemsDisponibles(cat, jugador).size() : cat.items().size();
+            String suf = jugador != null ? " &7(disponibles: &f" + n + "&7)" : " &7(&f" + n + "&7 items)";
+            emisor.sendMessage(Textos.color("&7- &f" + cat.id() + " &8" + cat.titulo() + suf));
+        }
+        if (jugador != null) {
+            emisor.sendMessage(Textos.color("&7Bioma actual: &f" + nombreBioma(servicio.biomeActual(jugador))));
         }
     }
 
-    private void avisar(CommandSender emisor, String clave, Map<String, String> reemplazos) {
-        String texto = reemplazos.isEmpty()
-                ? Textos.msg(ctx, clave)
-                : Textos.msg(ctx, clave, reemplazos);
-        Textos.enviar(emisor, Textos.prefijo(ctx) + texto);
+    private String sufijoDisponibilidad(MarketItem item) {
+        List<String> tags = new ArrayList<>();
+        if (item.tieneFiltroBioma()) {
+            tags.add("biomas: " + item.biomes().stream().limit(3).collect(Collectors.joining(","))
+                    + (item.biomes().size() > 3 ? "..." : ""));
+        }
+        if (item.tieneRotacion()) {
+            MarketRotation r = item.rotation();
+            String p = r.period() == MarketRotation.Period.WEEKLY ? "sem" : "dia";
+            tags.add(r.every() <= 1 ? "rot:siempre" : "rot:" + p + "/1de" + r.every());
+        }
+        if (tags.isEmpty()) return "";
+        return Textos.color(" &8[" + String.join(", ", tags) + "]");
+    }
+
+    private String nombreBioma(String clave) {
+        if (clave == null || clave.isBlank()) return "desconocido";
+        String base = clave.toLowerCase(Locale.ROOT).replace('_', ' ');
+        return Character.toUpperCase(base.charAt(0)) + base.substring(1);
+    }
+
+    private boolean tienePermiso(CommandSender emisor, String permiso) {
+        return emisor.hasPermission(permiso) || emisor.hasPermission("mushoku.admin");
     }
 
     @Override
-    public List<String> onTabComplete(CommandSender emisor, Command comando, String etiqueta,
-                                      String[] args) {
-        List<String> opciones = new ArrayList<>();
+    public List<String> onTabComplete(CommandSender emisor, Command comando, String alias, String[] args) {
         if (args.length == 1) {
-            if (emisor.hasPermission(PERMISO_ADMIN)) {
-                opciones.add("recargar");
-            }
-            opciones.add("lista");
-            opciones.add("comprar");
-            for (MarketCategory categoria : servicio.categorias()) {
-                opciones.add(categoria.id());
-            }
-            return filtrar(opciones, args[0]);
-        }
-        if (args.length == 2 && "comprar".equalsIgnoreCase(args[0])) {
-            for (MarketCategory categoria : servicio.categorias()) {
-                for (MarketItem item : categoria.items()) {
-                    opciones.add(item.id());
+            List<String> base = new ArrayList<>(List.of("comprar", "lista", "recargar"));
+            if (emisor instanceof Player p) {
+                for (MarketCategory cat : servicio.categoriasDisponibles(p)) {
+                    base.add(cat.id());
+                }
+            } else {
+                for (MarketCategory cat : servicio.categorias()) {
+                    base.add(cat.id());
                 }
             }
-            return filtrar(opciones, args[1]);
+            return filtrar(base, args[0]);
+        }
+        if (args.length == 2) {
+            String sub = args[0].toLowerCase(Locale.ROOT);
+            if (sub.equals("comprar") || sub.equals("buy")) {
+                List<String> ids = new ArrayList<>();
+                if (emisor instanceof Player p) {
+                    for (MarketCategory cat : servicio.categorias()) {
+                        for (MarketItem it : servicio.itemsDisponibles(cat, p)) ids.add(it.id());
+                    }
+                } else {
+                    for (MarketCategory cat : servicio.categorias()) {
+                        for (MarketItem it : cat.items()) ids.add(it.id());
+                    }
+                }
+                return filtrar(ids, args[1]);
+            }
+            if (sub.equals("lista") || sub.equals("list")) {
+                List<String> ids = new ArrayList<>();
+                for (MarketCategory cat : servicio.categorias()) ids.add(cat.id());
+                return filtrar(ids, args[1]);
+            }
         }
         return List.of();
     }
 
-    private static List<String> filtrar(List<String> opciones, String prefijo) {
-        String inicio = prefijo.toLowerCase(Locale.ROOT);
-        List<String> resultado = new ArrayList<>();
-        for (String opcion : opciones) {
-            if (opcion.toLowerCase(Locale.ROOT).startsWith(inicio)) {
-                resultado.add(opcion);
-            }
+    private List<String> filtrar(List<String> opciones, String prefijo) {
+        String p = prefijo == null ? "" : prefijo.toLowerCase(Locale.ROOT);
+        List<String> out = new ArrayList<>();
+        for (String o : opciones) {
+            if (o.toLowerCase(Locale.ROOT).startsWith(p)) out.add(o);
         }
-        return resultado;
+        return out;
     }
 }
