@@ -36,6 +36,17 @@ public final class Textos {
         }
     }
 
+    /** Texto de messages.yml y lo envía al destinatario con colores traducidos. */
+    public static void msg(PluginContext ctx, CommandSender destino, String clave) {
+        enviar(destino, msg(ctx, clave));
+    }
+
+    /** Texto de messages.yml con reemplazos y lo envía al destinatario. */
+    public static void msg(PluginContext ctx, CommandSender destino, String clave,
+                           Map<String, String> reemplazos) {
+        enviar(destino, msg(ctx, clave, reemplazos));
+    }
+
     /** Traduce códigos {@code &} legacy (messages.yml los usa; plan §4.3). */
     public static String color(String s) {
         return ChatColor.translateAlternateColorCodes('&', s == null ? "" : s);

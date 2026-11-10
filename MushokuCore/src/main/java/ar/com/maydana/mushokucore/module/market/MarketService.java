@@ -12,6 +12,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -64,6 +65,16 @@ public final class MarketService {
     }
 
     private static final long UN_MINUTO_MS = 60_000L;
+
+    /** Slots del menu principal que la GUI usa para el resumen y el boton cerrar. */
+    private static final int SLOT_INFO = 4;
+    private static final int SLOT_CERRAR = 22;
+    private static final int SLOT_MAX = 27;
+    /** Orden de asignacion cuando el YAML no fija slot o repite uno. */
+    private static final int[] ORDEN_SLOTS = {
+            10, 11, 12, 13, 14, 15, 16, 19, 20, 21,
+            9, 8, 7, 6, 5, 3, 2, 1, 0, 17, 18, 23, 24, 25, 26
+    };
 
     private final JavaPlugin plugin;
     private final MarketRepository repo;
@@ -123,6 +134,10 @@ public final class MarketService {
             return;
         }
 
+        Set<Integer> slotsUsados = new HashSet<>();
+        slotsUsados.add(SLOT_INFO);
+        slotsUsados.add(SLOT_CERRAR);
+
         for (String idCategoria : raizCategorias.getKeys(false)) {
             ConfigurationSection secCat = raizCategorias.getConfigurationSection(idCategoria);
             if (secCat == null) {
@@ -130,7 +145,7 @@ public final class MarketService {
             }
             String tituloCat = secCat.getString("title", "&f" + idCategoria);
             Material icono = parsearMaterial(secCat.getString("icon", "CHEST"));
-            int slot = secCat.getInt("slot", -1);
+            int slot = asignarSlot(secCat.getInt("slot", -1), slotsUsados);
             List<MarketItem> items = cargarItems(secCat.getConfigurationSection("items"), idCategoria);
 
             MarketCategory categoria = new MarketCategory(idCategoria, tituloCat, icono, slot, items);
@@ -142,6 +157,23 @@ public final class MarketService {
 
         this.categorias = nuevasCategorias;
         this.indice = nuevoIndice;
+    }
+
+    /**
+     * Respeta el slot del YAML si es valido y no esta ocupado; si no, toma el primero libre
+     * en {@link #ORDEN_SLOTS}. Devuelve -1 solo si no queda ningun slot disponible.
+     */
+    private static int asignarSlot(int pedido, Set<Integer> usados) {
+        if (pedido >= 0 && pedido < SLOT_MAX && pedido != SLOT_INFO && pedido != SLOT_CERRAR
+                && usados.add(pedido)) {
+            return pedido;
+        }
+        for (int candidato : ORDEN_SLOTS) {
+            if (usados.add(candidato)) {
+                return candidato;
+            }
+        }
+        return -1;
     }
 
     private List<MarketItem> cargarItems(ConfigurationSection seccion, String idCategoria) {
@@ -246,7 +278,11 @@ public final class MarketService {
     }
 
     private static String normalizarClave(String raw) {
-        return raw.trim().toLowerCase(Locale.ROOT).replace(' ', '_');
+        String base = raw.trim().toLowerCase(Locale.ROOT).replace(' ', '_');
+        if (base.startsWith("minecraft:")) {
+            base = base.substring("minecraft:".length());
+        }
+        return base;
     }
 
     public String titulo() {
@@ -355,7 +391,8 @@ public final class MarketService {
         if (InventarioUtil.contar(jugador, Material.DIAMOND) < item.priceDiamonds()) {
             return ResultadoCompra.SIN_DIAMANTES;
         }
-        if (!InventarioUtil.cabe(jugador, item.material(), item.amount())) {
+        if (!InventarioUtil.puedeEntregar(jugador.getInventory(),
+                new ItemStack(item.material(), item.amount()))) {
             return ResultadoCompra.SIN_ESPACIO;
         }
 
@@ -365,12 +402,15 @@ public final class MarketService {
         Map<Integer, ItemStack> sobrante = jugador.getInventory()
                 .addItem(new ItemStack(item.material(), item.amount()));
         if (!sobrante.isEmpty()) {
-            // No deberia pasar tras la comprobacion de espacio, pero devolvemos los diamantes.
+            // No deberia pasar tras la comprobacion de espacio, pero se revierte completo:
+            // se quita solo lo que realmente entro y se devuelven los diamantes.
+            int sinEntregar = 0;
             for (ItemStack resto : sobrante.values()) {
-                int devuelto = item.amount() - resto.getAmount();
-                if (devuelto > 0) {
-                    InventarioUtil.quitar(jugador, item.material(), devuelto);
-                }
+                sinEntregar += resto.getAmount();
+            }
+            int entregado = item.amount() - sinEntregar;
+            if (entregado > 0) {
+                InventarioUtil.quitar(jugador, item.material(), entregado);
             }
             jugador.getInventory().addItem(new ItemStack(Material.DIAMOND, item.priceDiamonds()));
             return ResultadoCompra.SIN_ESPACIO;
@@ -443,6 +483,16 @@ public final class MarketService {
             //noinspection ResultOfMethodCallIgnored
             plugin.getDataFolder().mkdirs();
         }
+    }
+
+    /** Carga {@code market.yml} y devuelve la cantidad de ofertas validas cargadas. */
+    public synchronized int cargarCatalogo() {
+        recargar();
+        int total = 0;
+        for (MarketCategory categoria : categorias.values()) {
+            total += categoria.items().size();
+        }
+        return total;
     }
 
     // compat: algunos call sites pueden pasar input stream en el futuro; no usado ahora.

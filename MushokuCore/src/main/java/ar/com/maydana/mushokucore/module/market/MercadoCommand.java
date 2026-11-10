@@ -46,7 +46,7 @@ public final class MercadoCommand implements CommandExecutor, TabCompleter {
     public boolean onCommand(CommandSender emisor, Command comando, String etiqueta, String[] args) {
         if (args.length == 0) {
             if (!(emisor instanceof Player jugador)) {
-                Textos.msg(ctx, emisor, "mercado.solo-jugador");
+                Textos.msg(ctx, emisor, "mercado.solo-jugadores");
                 return true;
             }
             if (!tienePermiso(emisor, PERMISO_USO)) {
@@ -61,7 +61,7 @@ public final class MercadoCommand implements CommandExecutor, TabCompleter {
         switch (sub) {
             case "comprar", "buy" -> {
                 if (!(emisor instanceof Player jugador)) {
-                    Textos.msg(ctx, emisor, "mercado.solo-jugador");
+                    Textos.msg(ctx, emisor, "mercado.solo-jugadores");
                     return true;
                 }
                 if (!tienePermiso(emisor, PERMISO_USO)) {
@@ -85,13 +85,18 @@ public final class MercadoCommand implements CommandExecutor, TabCompleter {
                     return true;
                 }
                 servicio.recargar();
-                Textos.msg(ctx, emisor, "mercado.recargado",
-                        Map.of("categorias", String.valueOf(servicio.categorias().size())));
+                int items = 0;
+                for (MarketCategory categoria : servicio.categorias()) {
+                    items += categoria.items().size();
+                }
+                Textos.msg(ctx, emisor, "mercado.recargado", Map.of(
+                        "categorias", String.valueOf(servicio.categorias().size()),
+                        "items", String.valueOf(items)));
                 return true;
             }
             default -> {
                 if (!(emisor instanceof Player jugador)) {
-                    Textos.msg(ctx, emisor, "mercado.solo-jugador");
+                    Textos.msg(ctx, emisor, "mercado.solo-jugadores");
                     return true;
                 }
                 if (!tienePermiso(emisor, PERMISO_USO)) {

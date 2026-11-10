@@ -2,7 +2,6 @@ package ar.com.maydana.mushokucore.module.market;
 
 import java.time.Instant;
 import java.time.ZoneId;
-import java.time.temporal.WeekFields;
 
 /**
  * Rotacion deterministica de una oferta del mercado.
@@ -58,11 +57,9 @@ public record MarketRotation(Period period, int every, int offset) {
         Instant instant = Instant.ofEpochMilli(nowMillis);
         if (period == Period.WEEKLY) {
             var date = instant.atZone(ZoneId.of("UTC")).toLocalDate();
-            WeekFields wf = WeekFields.ISO;
-            int week = date.get(wf.weekOfWeekBasedYear());
-            int year = date.get(wf.weekBasedYear());
-            // indice de semana estable (aprox): año*53 + semana
-            return (long) year * 53L + week;
+            // Indice de semana continuo con semana que empieza el lunes. Evita el salto
+            // de año que producia year*53+week en los años ISO de 52 semanas.
+            return Math.floorDiv(date.toEpochDay() + 3L, 7L);
         }
         // DAILY
         return instant.atZone(ZoneId.of("UTC")).toLocalDate().toEpochDay();

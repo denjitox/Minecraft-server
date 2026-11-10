@@ -59,9 +59,9 @@ public final class MarketGui {
         inventario.setItem(4, info);
 
         for (MarketCategory categoria : servicio.categoriasDisponibles(jugador)) {
-            int slot = Math.max(0, Math.min(TAM_PRINCIPAL - 1, categoria.slot()));
-            if (slot == 4 || slot == SLOT_CERRAR) {
-                slot = (slot + 1) % TAM_PRINCIPAL;
+            int slot = categoria.slot();
+            if (slot < 0 || slot >= TAM_PRINCIPAL) {
+                continue;
             }
             ItemStack icono = new ItemStack(categoria.icono() == null ? Material.CHEST : categoria.icono());
             ItemMeta meta = icono.getItemMeta();
@@ -165,13 +165,9 @@ public final class MarketGui {
                 jugador.closeInventory();
                 return;
             }
-            // Buscar categoria por slot visible
+            // Buscar categoria por slot visible (el loader ya garantiza slots unicos)
             for (MarketCategory categoria : servicio.categoriasDisponibles(jugador)) {
-                int s = Math.max(0, Math.min(TAM_PRINCIPAL - 1, categoria.slot()));
-                if (s == 4 || s == SLOT_CERRAR) {
-                    s = (s + 1) % TAM_PRINCIPAL;
-                }
-                if (s == slot) {
+                if (categoria.slot() == slot) {
                     abrirCategoria(jugador, categoria.id());
                     return;
                 }
