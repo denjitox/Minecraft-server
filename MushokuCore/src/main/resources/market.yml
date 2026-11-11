@@ -53,6 +53,13 @@ categories:
         material: SMOOTH_STONE
         amount: 64
         price-diamonds: 2
+      tierra:
+        material: DIRT
+        amount: 64
+        price-diamonds: 1
+        name: "&fTierra"
+        lore:
+          - "&7Base para tierra de cultivo."
       troncos-roble:
         material: OAK_LOG
         amount: 64
@@ -64,6 +71,13 @@ categories:
         material: GLASS
         amount: 64
         price-diamonds: 3
+      antorcha:
+        material: TORCH
+        amount: 32
+        price-diamonds: 1
+        name: "&fAntorchas"
+        lore:
+          - "&7Luz para la noche del desierto."
       piedra-del-abismo:
         material: DEEPSLATE
         amount: 64
@@ -74,6 +88,13 @@ categories:
         price-diamonds: 2
         lore:
           - "&7Para portales y granjas."
+      lana-blanca:
+        material: WHITE_WOOL
+        amount: 16
+        price-diamonds: 1
+        name: "&fLana blanca"
+        lore:
+          - "&7Para camas y decoracion."
 
   comida:
     title: "&aComida"
@@ -127,6 +148,28 @@ categories:
         amount: 1
         price-diamonds: 2
         name: "&fPala de hierro"
+      azada-hierro:
+        material: IRON_HOE
+        amount: 1
+        price-diamonds: 2
+        name: "&fAzada de hierro"
+        lore:
+          - "&7Prepara tierra de cultivo."
+      espada-hierro:
+        material: IRON_SWORD
+        amount: 1
+        price-diamonds: 3
+        name: "&fEspada de hierro"
+      arco:
+        material: BOW
+        amount: 1
+        price-diamonds: 2
+        name: "&fArco"
+      flechas:
+        material: ARROW
+        amount: 32
+        price-diamonds: 1
+        name: "&fFlechas"
       tijeras:
         material: SHEARS
         amount: 1
@@ -134,7 +177,7 @@ categories:
       balde:
         material: BUCKET
         amount: 1
-        price-diamonds: 2
+        price-diamonds: 1
       pedernal-acero:
         material: FLINT_AND_STEEL
         amount: 1
@@ -180,6 +223,13 @@ categories:
         amount: 4
         price-diamonds: 2
         name: "&fCrema de magma"
+      harina-hueso:
+        material: BONE_MEAL
+        amount: 16
+        price-diamonds: 1
+        name: "&fHarina de hueso"
+        lore:
+          - "&7Acelera el crecimiento de los cultivos."
 
   especial:
     title: "&6Especiales"
@@ -223,6 +273,18 @@ categories:
         name: "&aCactus del oasis"
         lore:
           - "&7Oferta disponible solo en biomas deserticos."
+        biomes:
+          - desert
+          - badlands
+          - eroded_badlands
+          - wooded_badlands
+      cubeta-agua-desierto:
+        material: WATER_BUCKET
+        amount: 1
+        price-diamonds: 2
+        name: "&bAgua del oasis"
+        lore:
+          - "&7Fuente de agua para granjas en el desierto."
         biomes:
           - desert
           - badlands
