@@ -228,6 +228,54 @@ categories:
           - badlands
           - eroded_badlands
           - wooded_badlands
+      semillas-de-trigo-desierto:
+        material: WHEAT_SEEDS
+        amount: 16
+        price-diamonds: 1
+        name: "&eSemillas de trigo"
+        lore:
+          - "&7Oferta disponible solo en biomas deserticos."
+        biomes:
+          - desert
+          - badlands
+          - eroded_badlands
+          - wooded_badlands
+      semillas-de-melon-desierto:
+        material: MELON_SEEDS
+        amount: 8
+        price-diamonds: 1
+        name: "&aSemillas de melón"
+        lore:
+          - "&7Oferta disponible solo en biomas deserticos."
+        biomes:
+          - desert
+          - badlands
+          - eroded_badlands
+          - wooded_badlands
+      semillas-de-calabaza-desierto:
+        material: PUMPKIN_SEEDS
+        amount: 8
+        price-diamonds: 1
+        name: "&6Semillas de calabaza"
+        lore:
+          - "&7Oferta disponible solo en biomas deserticos."
+        biomes:
+          - desert
+          - badlands
+          - eroded_badlands
+          - wooded_badlands
+      semillas-de-remolacha-desierto:
+        material: BEETROOT_SEEDS
+        amount: 16
+        price-diamonds: 1
+        name: "&cSemillas de remolacha"
+        lore:
+          - "&7Oferta disponible solo en biomas deserticos."
+        biomes:
+          - desert
+          - badlands
+          - eroded_badlands
+          - wooded_badlands
       hielo-glacial:
         material: PACKED_ICE
         amount: 32
